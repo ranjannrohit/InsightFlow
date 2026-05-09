@@ -98,23 +98,20 @@ async def upload(file: UploadFile = File(...)):
 
     # ---------- RESPONSE ----------
     return {
-        "summary": {
-            "rows": rows,
-            "columns": cols,
-            "missing": missing,
-            "duplicates": duplicates,
+    "summary": {
+        "rows": rows,
+        "columns": cols,
+        "missing": missing,
+        "duplicates": duplicates,
+        "numeric_columns": numeric_cols,
+        "categorical_columns": categorical_cols,
+        "column_names": list(df.columns),
+    },
 
-            "numeric_columns": numeric_cols,
+    "preview": df.head(10).values.tolist(),
 
-            "categorical_columns": categorical_cols,
-
-            "column_names": list(df.columns)
-        },
-
-        "preview": preview,
-
-        "kpis": kpis
-    }
+    "kpis": kpis
+}
 
 # ---------------------------------
 # EDA

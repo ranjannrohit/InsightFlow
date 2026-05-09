@@ -1107,34 +1107,43 @@ function addM(type,html,ret){
   w.appendChild(d);w.scrollTop=w.scrollHeight;return ret?d:null;
 }
 async function handleUpload(input) {
+
   const file = input.files[0];
+
   if (!file) return;
 
-  // show app UI
+  // show app
   enterApp();
 
-  // show filename
+  // filename
   document.getElementById('afile').textContent = file.name;
 
-  // call backend
+  // upload status
+  setSt('busy', 'Uploading...');
+
+  // form data
   const fd = new FormData();
   fd.append("file", file);
 
-  setSt('busy', 'Uploading...');
-
-  const res = await fetch("http://127.0.0.1:8000/upload", {
-  method: "POST",
-  body: fd
-});
+  // backend request
+  const res = await fetch(API_BASE + "/upload", {
+    method: "POST",
+    body: fd
+  });
 
   const data = await res.json();
 
-  // ⚠️ IMPORTANT: map backend → your UI structure
+  console.log(data);
+
+  // transform backend response
   const transformed = transformBackendData(data, file.name);
 
   cur = transformed;
 
+  // run UI pipeline
   pipeline(transformed, file.name);
+
+  // load EDA
   await loadEDA();
 }
 function transformBackendData(data, filename) {
@@ -1153,8 +1162,20 @@ function transformBackendData(data, filename) {
       { l: 'Duplicates', v: s.duplicates.toString(), d: '', up: false, spark: [2,4,6,8] }
     ],
 
-    bars: [],
-    donut: { total: "", sub: "", items: [] },
+    bars: [
+  { l: 'Rows', v: 80 },
+  { l: 'Columns', v: 60 },
+  { l: 'Missing', v: 30 },
+  { l: 'Duplicates', v: 10 }
+],
+    donut: {
+  total: s.rows.toString(),
+  sub: "dataset rows",
+  items: [
+    { l: 'Numeric', p: 60, c: '#c8f135' },
+    { l: 'Categorical', p: 40, c: '#3d8eff' }
+  ]
+},
 
     insights: [
       { t: 'ok', tag: 'INFO', txt: `Dataset has ${s.rows} rows and ${s.columns} columns.` },
@@ -1168,7 +1189,7 @@ function transformBackendData(data, filename) {
   };
 }
 async function loadEDA() {
-  const res = await fetch("http://127.0.0.1:8000/eda");
+  const res = await fetch(API_BASE + "/eda");
   const data = await res.json();
 
   if (data.error) {
