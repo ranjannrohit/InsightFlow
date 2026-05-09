@@ -513,7 +513,12 @@ html,body{height:100%;background:var(--black);color:var(--white);font-family:var
 
     <!-- EDA -->
     <div class="view" id="v-eda">
-      <div id="edaContent"></div>
+      <div id="eda-c">
+  <div class="load-box">
+    <div class="spin"></div>
+    <div class="ltxt">Load a dataset first</div>
+  </div>
+</div>
       <div class="pg-h">Exploratory Data Analysis</div>
       <div class="pg-s" id="eda-s">Statistical profiling</div>
     </div>
@@ -1139,12 +1144,13 @@ async function handleUpload(input) {
   const transformed = transformBackendData(data, file.name);
 
   cur = transformed;
+  bEDA(transformed);
 
   // run UI pipeline
   pipeline(transformed, file.name);
 
   // load EDA
-  await loadEDA();
+  
 }
 function transformBackendData(data, filename) {
   const s = data.summary;
@@ -1183,37 +1189,17 @@ function transformBackendData(data, filename) {
       { t: 'bad', tag: 'DUPLICATES', txt: `${s.duplicates} duplicate rows found.` } 
     ],
 
-    estats: [],
+    estats: [
+  { l:'Rows', v:s.rows.toString(), s:'total records', ic:'' },
+  { l:'Columns', v:s.columns.toString(), s:'dataset columns', ic:'' },
+  { l:'Missing', v:s.missing.toString(), s:'missing values', ic:'' },
+  { l:'Duplicates', v:s.duplicates.toString(), s:'duplicate rows', ic:'' },
+  { l:'Numeric', v:s.numeric_columns.length.toString(), s:'numeric features', ic:'' },
+  { l:'Categorical', v:(s.columns - s.numeric_columns.length).toString(), s:'categorical features', ic:'' }
+],
     cleanOps: [],
     ctx: "Uploaded dataset"
   };
-}
-async function loadEDA() {
-  const res = await fetch(API_BASE + "/eda");
-  const data = await res.json();
-
-  if (data.error) {
-    document.getElementById("edaContent").innerHTML = data.error;
-    return;
-  }
-
-  renderEDA(data);
-}
-function renderEDA(data) {
-  const desc = data.description;
-  const corr = data.correlation;
-
-  document.getElementById("edaContent").innerHTML = `
-    <div class="card">
-      <h3>Summary Statistics</h3>
-      <pre>${JSON.stringify(desc, null, 2)}</pre>
-    </div>
-
-    <div class="card" style="margin-top:20px;">
-      <h3>Correlation Matrix</h3>
-      <pre>${JSON.stringify(corr, null, 2)}</pre>
-    </div>
-  `;
 }
 </script>
 </body>
