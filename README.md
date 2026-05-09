@@ -1,4 +1,4 @@
-# 🚀 InsightFlow
+# 🧮 InsightFlow
 
 ### **Agentic Data Analytics Platform for Modern Data Exploration**
 
