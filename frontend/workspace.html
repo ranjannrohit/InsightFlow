@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>InsightFlow — Turn Data Into Decisions</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500&family=Archivo:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --black:#09090b;--off:#0f0f12;--s1:#141417;--s2:#1c1c21;--s3:#242429;
+  --line:#ffffff0e;--line2:#ffffff18;--line3:#ffffff28;
+  --white:#f4f4f0;--muted:#7a7a85;--muted2:#3e3e48;
+  --lime:#c8f135;--lime2:#8faa24;
+  --red:#ff4d3d;--blue:#3d8eff;--amber:#f5a623;--teal:#2dd4bf;
+  --ff:'Bebas Neue',sans-serif;--fm:'IBM Plex Mono',monospace;--fb:'Archivo',sans-serif;
+}
+html,body{height:100%;background:var(--black);color:var(--white);font-family:var(--fb);font-size:14px;overflow:hidden}
+.shell{height:100vh;position:relative}
+
+/* ══ LANDING ══ */
+#landing{display:flex;flex-direction:column;height:100vh;position:relative;overflow:hidden}
+
+/* grid bg */
+#landing::before{content:'';position:absolute;inset:0;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:80px 80px;pointer-events:none;z-index:0}
+
+/* particle canvas */
+#pcvs{position:absolute;inset:0;z-index:0;pointer-events:none;opacity:.6}
+
+.l-nav{display:flex;align-items:center;justify-content:space-between;padding:18px 40px;position:relative;z-index:2;border-bottom:1px solid var(--line)}
+.l-logo{font-family:var(--ff);font-size:20px;letter-spacing:3px}
+.l-logo b{color:var(--lime)}
+.l-nav-r{display:flex;align-items:center;gap:12px}
+.l-badge{font-family:var(--fm);font-size:10px;color:var(--muted);border:1px solid var(--line3);padding:4px 10px;letter-spacing:.5px}
+.l-badge.live{color:var(--lime);border-color:rgba(200,241,53,.3);display:flex;align-items:center;gap:6px}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--lime);animation:pulse-g 2s ease-in-out infinite}
+@keyframes pulse-g{0%,100%{box-shadow:0 0 0 0 rgba(200,241,53,.5)}50%{box-shadow:0 0 0 5px rgba(200,241,53,0)}}
+
+/* ── TICKER ── */
+.ticker{height:26px;background:rgba(200,241,53,.03);border-bottom:1px solid var(--line);overflow:hidden;position:relative;z-index:2;display:flex;align-items:center}
+.ticker-track{display:flex;animation:ticker-move 30s linear infinite;white-space:nowrap}
+.t-item{font-family:var(--fm);font-size:10px;color:var(--muted);padding:0 24px;border-right:1px solid var(--line);display:flex;align-items:center;gap:7px;height:26px}
+.t-item .tv{color:var(--white)}
+.t-up{color:var(--lime)}.t-dn{color:var(--red)}
+@keyframes ticker-move{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+
+/* ── HERO ── */
+.hero{flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 40px;position:relative;z-index:1}
+.hero-tag{font-family:var(--fm);font-size:11px;color:var(--lime);letter-spacing:3px;text-transform:uppercase;display:flex;align-items:center;gap:12px;margin-bottom:20px;opacity:0;animation:fup .5s .1s forwards}
+.hero-tag::before{content:'';width:40px;height:1px;background:var(--lime)}
+
+/* BIG WIDE HERO TEXT — stretched horizontally */
+.hero-h{font-family:var(--ff);line-height:.85;opacity:0;animation:fup .5s .2s forwards;width:100%}
+.hero-h .r1{
+  font-size:clamp(100px,16vw,220px);
+  letter-spacing:.12em;
+  color:var(--white);
+  display:block;
+  /* stretch to fill width */
+  width:100%;
+  word-spacing:.05em;
+}
+.hero-h .r2{
+  font-size:clamp(100px,16vw,220px);
+  letter-spacing:.12em;
+  color:transparent;
+  -webkit-text-stroke:1.5px rgba(255,255,255,.22);
+  display:block;
+  width:100%;
+}
+.hero-h .r3{
+  font-size:clamp(13px,1.4vw,19px);
+  letter-spacing:.45em;
+  color:var(--muted);
+  display:block;
+  margin-top:14px;
+  -webkit-text-stroke:0;
+}
+
+.hero-bottom{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line2);margin-top:26px;opacity:0;animation:fup .5s .35s forwards}
+.hb-item{padding:16px 0;border-right:1px solid var(--line2)}
+.hb-item:last-child{border-right:none}
+.hb-item:not(:first-child){padding-left:28px}
+.hb-lbl{font-family:var(--fm);font-size:9px;color:var(--muted2);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.hb-val{font-size:13px;color:var(--muted);line-height:1.6}
+.hb-val strong{color:var(--white);font-weight:500}
+
+/* ── CTA ── */
+.cta-row{display:flex;align-items:center;padding:18px 40px;border-top:1px solid var(--line);position:relative;z-index:2;opacity:0;animation:fup .5s .45s forwards;gap:0}
+.cta-btn{background:var(--lime);color:var(--black);font-family:var(--ff);font-size:17px;letter-spacing:2px;border:none;padding:14px 30px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:10px}
+.cta-btn:hover{background:var(--white);transform:translateY(-1px)}
+.dv{width:1px;height:44px;background:var(--line3);margin:0 24px}
+.sample-lbl{font-family:var(--fm);font-size:10px;color:var(--muted2);letter-spacing:1px;margin-right:12px}
+.schip{border:1px solid var(--line2);padding:7px 14px;font-family:var(--fm);font-size:10px;color:var(--muted);cursor:pointer;background:transparent;transition:all .12s;letter-spacing:.5px;display:flex;align-items:center;gap:6px}
+.schip:hover{border-color:var(--lime);color:var(--lime)}
+.schip-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+@keyframes fup{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+
+/* ══ APP ══ */
+#app{display:none;grid-template-rows:50px 1fr;grid-template-columns:200px 1fr;height:100vh}
+#app.on{display:grid}
+
+.atop{grid-column:1/-1;background:var(--off);border-bottom:1px solid var(--line2);display:flex;align-items:center;padding:0 20px;gap:14px}
+.a-logo{font-family:var(--ff);font-size:17px;letter-spacing:2px}
+.a-logo b{color:var(--lime)}
+.asep{width:1px;height:16px;background:var(--line2)}
+.a-file{font-family:var(--fm);font-size:11px;color:var(--muted);background:var(--s1);border:1px solid var(--line2);padding:3px 12px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.atop-r{margin-left:auto;display:flex;align-items:center;gap:12px}
+.sdot{width:7px;height:7px;border-radius:50%;background:var(--lime)}
+.sdot.busy{background:var(--amber);animation:pulse-g 1s infinite}
+.stxt{font-family:var(--fm);font-size:10px;color:var(--muted)}
+.clk{font-family:var(--fm);font-size:10px;color:var(--muted2)}
+.back{font-family:var(--fm);font-size:10px;color:var(--muted);border:1px solid var(--line2);padding:4px 12px;cursor:pointer;background:transparent;letter-spacing:.5px;transition:all .12s;display:flex;align-items:center;gap:5px}
+.back:hover{color:var(--white);border-color:var(--line3)}
+
+.aside{background:var(--off);border-right:1px solid var(--line2);display:flex;flex-direction:column;overflow-y:auto}
+.a-sec{padding:14px 0 4px}
+.a-slbl{font-family:var(--fm);font-size:9px;color:var(--muted2);letter-spacing:1.5px;padding:0 14px 6px;text-transform:uppercase}
+.nv{display:flex;align-items:center;gap:9px;padding:8px 14px;font-size:12px;color:var(--muted);cursor:pointer;border-left:2px solid transparent;transition:all .1s;font-family:var(--fb)}
+.nv:hover{color:var(--white);background:var(--s1)}
+.nv.on{color:var(--white);border-left-color:var(--lime);background:var(--s1);font-weight:500}
+.nv-ic{width:13px;height:13px;flex-shrink:0;opacity:.5}
+.nv.on .nv-ic{opacity:1}
+.ai-badge{margin-left:auto;background:var(--lime);color:var(--black);font-family:var(--fm);font-size:8px;padding:2px 5px;font-weight:600}
+
+/* sidebar live mini */
+.side-live{margin:10px 12px;padding:10px 12px;border:1px solid var(--line2);background:var(--s1)}
+.sl-lbl{font-family:var(--fm);font-size:9px;color:var(--muted2);letter-spacing:1px;margin-bottom:4px;display:flex;align-items:center;gap:5px}
+.sl-val{font-family:var(--ff);font-size:18px;color:var(--lime);margin-bottom:2px}
+.sl-sub{font-family:var(--fm);font-size:9px;color:var(--lime2)}
+#sideSparkCanvas{display:block;margin-top:6px;width:100%;height:36px}
+
+.main{background:var(--black);overflow-y:auto;padding:26px 30px 60px}
+.view{display:none}
+.view.on{display:block}
+.pg-h{font-family:var(--ff);font-size:26px;letter-spacing:1px;margin-bottom:3px}
+.pg-s{font-family:var(--fm);font-size:11px;color:var(--muted);margin-bottom:22px;letter-spacing:.3px}
+
+/* loading */
+.load-box{display:flex;flex-direction:column;align-items:center;justify-content:center;height:280px;gap:14px}
+.spin{width:30px;height:30px;border:2px solid var(--line2);border-top-color:var(--lime);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ltxt{font-family:var(--fm);font-size:11px;color:var(--muted)}
+.ptrack{width:200px;height:2px;background:var(--s3)}
+.pfill{height:100%;background:var(--lime);width:0;transition:width .35s ease}
+
+/* kpis */
+.krow{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line2);margin-bottom:20px}
+.kpi{padding:18px;border-right:1px solid var(--line2);position:relative;overflow:hidden}
+.kpi:last-child{border-right:none}
+.klbl{font-family:var(--fm);font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.kval{font-family:var(--ff);font-size:30px;letter-spacing:1px;margin-bottom:4px}
+.kdelta{font-family:var(--fm);font-size:10px;margin-bottom:8px}
+.up{color:var(--lime)}.dn{color:var(--red)}
+.kpi canvas{display:block;width:100%;height:30px;opacity:.8}
+
+/* animated line chart */
+.linechart-box{background:var(--s1);border:1px solid var(--line2);padding:18px;margin-bottom:18px}
+.linechart-box canvas{width:100%;height:160px;display:block}
+
+/* charts */
+.cgrid{display:grid;grid-template-columns:3fr 2fr;gap:16px;margin-bottom:18px}
+.cc{background:var(--s1);border:1px solid var(--line2);padding:20px}
+.ct{font-family:var(--fm);font-size:9px;color:var(--muted2);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:16px;display:flex;align-items:center;gap:7px}
+.blist{display:flex;flex-direction:column;gap:11px}
+.brow{display:flex;align-items:center;gap:10px}
+.blbl{font-family:var(--fm);font-size:10px;color:var(--muted);width:60px;text-align:right;flex-shrink:0}
+.btrk{flex:1;background:var(--s3);height:18px;overflow:hidden}
+.bfill{height:100%;background:var(--lime);display:flex;align-items:center;padding:0 8px;font-family:var(--fm);font-size:10px;color:var(--black);font-weight:500;transition:width 1.1s cubic-bezier(.4,0,.2,1)}
+
+/* donut */
+.dnut-wrap{position:relative;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+.dnut-c{position:absolute;text-align:center;pointer-events:none}
+.dnut-v{font-family:var(--ff);font-size:20px;letter-spacing:1px}
+.dnut-s{font-family:var(--fm);font-size:9px;color:var(--muted)}
+.leg{display:flex;flex-direction:column;gap:7px}
+.leg-r{display:flex;align-items:center;justify-content:space-between;font-size:12px}
+.leg-l{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:11px}
+.ldot{width:6px;height:6px;flex-shrink:0}
+.lpct{font-family:var(--fm);font-size:10px;color:var(--muted)}
+
+/* insights */
+.ins-box{background:var(--s1);border:1px solid var(--line2);padding:20px;margin-bottom:18px}
+.ins-list{list-style:none;display:flex;flex-direction:column}
+.ins-li{padding:11px 0;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;gap:14px;font-size:13px;color:var(--muted);line-height:1.6;opacity:0;animation:fup .35s forwards}
+.ins-li:last-child{border-bottom:none}
+.ins-n{font-family:var(--fm);font-size:10px;color:var(--muted2);flex-shrink:0;min-width:18px;margin-top:2px}
+.ins-tag{font-family:var(--fm);font-size:9px;padding:2px 7px;border:1px solid;letter-spacing:.5px;flex-shrink:0;margin-top:2px}
+.ins-tag.ok{color:var(--lime);border-color:rgba(200,241,53,.3)}
+.ins-tag.warn{color:var(--amber);border-color:rgba(245,166,35,.3)}
+.ins-tag.bad{color:var(--red);border-color:rgba(255,77,61,.3)}
+
+/* eda */
+.egrid{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line2);margin-bottom:18px}
+.estat{padding:15px 18px;border-right:1px solid var(--line2);border-bottom:1px solid var(--line2)}
+.estat:nth-child(3n){border-right:none}
+.estat:nth-last-child(-n+3){border-bottom:none}
+.elbl{font-family:var(--fm);font-size:9px;color:var(--muted2);letter-spacing:1px;text-transform:uppercase;margin-bottom:7px;display:flex;align-items:center;gap:5px}
+.eval{font-family:var(--ff);font-size:24px;letter-spacing:1px;color:var(--lime);margin-bottom:2px}
+.esub{font-family:var(--fm);font-size:10px;color:var(--muted)}
+.qgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px}
+
+/* scatter */
+.scatter-box{background:var(--s1);border:1px solid var(--line2);padding:18px;margin-bottom:18px}
+.scatter-box canvas{width:100%;height:160px;display:block}
+
+/* table */
+.tbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:10px}
+.tsrch{background:var(--s1);border:1px solid var(--line2);padding:7px 12px;color:var(--white);font-family:var(--fm);font-size:11px;outline:none;width:190px;display:flex;align-items:center}
+.tsrch:focus{border-color:var(--lime)}
+.tsrch::placeholder{color:var(--muted2)}
+.ttag{font-family:var(--fm);font-size:9px;padding:3px 9px;border:1px solid var(--line2);color:var(--muted);letter-spacing:.5px;display:inline-flex;align-items:center;gap:5px}
+.ttag.g{border-color:rgba(200,241,53,.25);color:var(--lime2)}
+.ttag.a{border-color:rgba(245,166,35,.25);color:var(--amber)}
+.twrap{border:1px solid var(--line2);overflow:hidden}
+.thead-row{padding:10px 18px;border-bottom:1px solid var(--line2);display:flex;justify-content:space-between;align-items:center;background:var(--s1)}
+.tmeta{font-family:var(--fm);font-size:10px;color:var(--muted)}
+.dtbl{width:100%;border-collapse:collapse;font-size:11px}
+.dtbl th{background:var(--s2);padding:8px 12px;text-align:left;font-family:var(--fm);font-size:9px;letter-spacing:.8px;color:var(--muted);border-bottom:1px solid var(--line2);white-space:nowrap;text-transform:uppercase;cursor:pointer}
+.dtbl th:hover{color:var(--white)}
+.dtbl td{padding:9px 12px;border-bottom:1px solid var(--line);font-family:var(--fm);font-size:11px;white-space:nowrap}
+.dtbl tr:last-child td{border-bottom:none}
+.dtbl tbody tr:hover td{background:var(--s1)}
+.dtbl tbody tr{opacity:0;animation:fup .3s forwards}
+.dbadge{font-family:var(--fm);font-size:9px;padding:2px 7px;letter-spacing:.4px}
+.dbadge.g{background:rgba(200,241,53,.08);color:var(--lime2);border:1px solid rgba(200,241,53,.2)}
+.dbadge.a{background:rgba(245,166,35,.08);color:var(--amber);border:1px solid rgba(245,166,35,.2)}
+.dbadge.b{background:rgba(61,142,255,.08);color:var(--blue);border:1px solid rgba(61,142,255,.2)}
+.dbadge.t{background:rgba(45,212,191,.08);color:var(--teal);border:1px solid rgba(45,212,191,.2)}
+
+/* cleaning */
+.cstats{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line2);margin-bottom:18px}
+.cst{padding:15px 18px;border-right:1px solid var(--line2)}
+.cst:last-child{border-right:none}
+.tlbox{border:1px solid var(--line2);background:var(--s1);padding:20px}
+.tl-r{display:flex;gap:14px;padding-bottom:16px;opacity:0;animation:fup .35s forwards}
+.tl-l{display:flex;flex-direction:column;align-items:center}
+.tl-d{width:8px;height:8px;background:var(--lime);flex-shrink:0;margin-top:4px}
+.tl-d.pulse{animation:pulse-g 2s ease-in-out infinite}
+.tl-c{flex:1;width:1px;background:var(--line2);margin:3px 0}
+.tl-b{flex:1}
+.tl-t{font-size:13px;font-weight:500;margin-bottom:3px}
+.tl-s{font-family:var(--fm);font-size:11px;color:var(--muted);line-height:1.5}
+
+/* report */
+.erow{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap}
+.ebtn{border:1px solid var(--line2);padding:8px 16px;font-size:12px;color:var(--muted);cursor:pointer;background:transparent;font-family:var(--fb);transition:all .12s;display:flex;align-items:center;gap:7px}
+.ebtn:hover{border-color:var(--lime);color:var(--lime)}
+.rcard{border:1px solid var(--line2);background:var(--s1);padding:22px;margin-bottom:14px}
+.rcard h3{font-family:var(--ff);font-size:15px;letter-spacing:1px;margin-bottom:12px;padding-bottom:11px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}
+.rp{font-size:13px;color:var(--muted);line-height:1.8}
+.rp strong{color:var(--white);font-weight:500}
+
+/* chat */
+.api-strip{background:var(--s1);border:1px solid var(--line2);padding:10px 16px;display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.api-strip label{font-family:var(--fm);font-size:9px;color:var(--muted2);white-space:nowrap;letter-spacing:1px;text-transform:uppercase;display:flex;align-items:center;gap:5px}
+.api-inp{background:var(--off);border:1px solid var(--line2);padding:6px 12px;color:var(--white);font-family:var(--fm);font-size:11px;outline:none;flex:1;min-width:160px}
+.api-inp:focus{border-color:var(--lime)}
+.api-sv{background:var(--lime);color:var(--black);border:none;padding:6px 14px;font-family:var(--ff);font-size:13px;letter-spacing:1px;cursor:pointer}
+.api-sv:hover{background:var(--white)}
+.chat-shell{display:flex;flex-direction:column;height:calc(100vh - 50px - 108px);max-width:760px}
+.cmsgs{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:13px;padding-bottom:12px;scrollbar-width:thin;scrollbar-color:var(--line2) transparent}
+.cmsg{display:flex;gap:11px}
+.cav{width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-family:var(--ff);font-size:12px;letter-spacing:1px;flex-shrink:0;margin-top:2px}
+.cav.ai{background:var(--lime);color:var(--black)}
+.cav.u{background:var(--s3);color:var(--muted);border:1px solid var(--line2);font-size:10px}
+.cmsg.user{flex-direction:row-reverse}
+.cbody{background:var(--s1);border:1px solid var(--line2);padding:11px 15px;font-size:13px;line-height:1.7;max-width:83%;color:var(--muted)}
+.cbody strong{color:var(--white)}
+.cmsg.user .cbody{background:var(--s2)}
+.sqrow{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:11px}
+.sq{border:1px solid var(--line2);padding:5px 12px;font-family:var(--fm);font-size:10px;color:var(--muted);cursor:pointer;background:transparent;transition:all .1s;letter-spacing:.3px;display:flex;align-items:center;gap:5px}
+.sq:hover{border-color:var(--lime);color:var(--lime)}
+.cin-row{border:1px solid var(--line2);padding:11px 16px;display:flex;align-items:flex-end;gap:10px;background:var(--s1)}
+.cin{background:none;border:none;outline:none;color:var(--white);font-family:var(--fb);font-size:13px;flex:1;resize:none;line-height:1.5;max-height:100px}
+.cin::placeholder{color:var(--muted2)}
+.sndbtn{background:var(--lime);color:var(--black);border:none;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .12s}
+.sndbtn:hover{background:var(--white)}
+.td{display:inline-block;width:5px;height:5px;background:var(--muted);border-radius:50%;animation:tda 1.1s infinite;margin:0 2px}
+.td:nth-child(2){animation-delay:.2s}.td:nth-child(3){animation-delay:.4s}
+@keyframes tda{0%,80%,100%{transform:scale(.5);opacity:.3}40%{transform:scale(1);opacity:1}}
+.corrbox{border:1px solid var(--line2);background:var(--s1);padding:20px;margin-bottom:18px}
+
+/* icon helpers */
+.ico{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ══════════════ LANDING ══════════════ -->
+<div id="landing">
+  <canvas id="pcvs"></canvas>
+
+  <div class="l-nav">
+    <div class="l-logo">INSIGHT<b>FLOW</b></div>
+    <div class="l-nav-r">
+      <span class="l-badge live"><span class="live-dot"></span>AGENT ONLINE</span>
+      <span class="l-badge">v2.4.0</span>
+    </div>
+  </div>
+
+  <!-- TICKER -->
+  <div class="ticker">
+    <div class="ticker-track">
+      <span class="t-item"><svg width="10" height="10" fill="none" viewBox="0 0 10 10"><path d="M1 8l3-3 2 2 3-4" stroke="#c8f135" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>REVENUE <span class="tv">$842K</span> <span class="t-up">↑14.2%</span></span>
+      <span class="t-item"><svg width="10" height="10" fill="none" viewBox="0 0 10 10"><circle cx="5" cy="5" r="3.5" stroke="#c8f135" stroke-width="1.2"/><path d="M5 3v2l1.5 1" stroke="#c8f135" stroke-width="1.2" stroke-linecap="round"/></svg>MARGIN <span class="tv">38.4%</span> <span class="t-up">↑3.1%</span></span>
+      <span class="t-item"><svg width="10" height="10" fill="none" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" rx="1" stroke="#7a7a85" stroke-width="1.2"/><path d="M3 5h4M5 3v4" stroke="#7a7a85" stroke-width="1.2" stroke-linecap="round"/></svg>ORDERS <span class="tv">1,247</span> <span class="t-up">↑8.7%</span></span>
+      <span class="t-item"><svg width="10" height="10" fill="none" viewBox="0 0 10 10"><path d="M1 5l3 3 5-6" stroke="#c8f135" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>SAAS SHARE <span class="tv">45%</span> <span class="t-up">↑ LEADING</span></span>
+      <span class="t-item"><svg width="10" height="10" fill="none" viewBox="0 0 10 10"><path d="M1 3l3 3-3 3M5 9h4" stroke="#ff4d3d" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>AVG ORDER <span class="tv">$675</span> <span class="t-dn">↓2.3%</span></span>
+      <span class="t-item"><svg width="10" height="10" fill="none" viewBox="0 0 10 10"><path d="M1 8l2-3 2 1.5 2-3 2 1" stroke="#3d8eff" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Q4 vs Q3 <span class="tv">+22%</span> <span class="t-up">↑ ON TRACK</span></span>
+      <span class="t-item"><svg width="10" height="10" fill="none" viewBox="0 0 10 10"><path d="M5 1l1.5 3 3.5.5-2.5 2.5.5 3.5L5 8.5 2 10.5l.5-3.5L0 4.5l3.5-.5z" stroke="#f5a623" stroke-width="1" fill="none"/></svg>ENTERPRISE <span class="tv">3.2×</span> <span class="t-up">↑ vs SMB</span></span>
+      <span class="t-item"><svg width="10" height="10" fill="none" viewBox="0 0 10 10"><path d="M1 9V5l2-2 2 2 2-3 2 1" stroke="#2dd4bf" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>DATA QUALITY <span class="tv">94.5%</span> <span class="t-up">↑ CLEAN</span></span>
+      <!-- duplicate -->
+      <span class="t-item"><svg width="10" height="10" fill="none" viewBox="0 0 10 10"><path d="M1 8l3-3 2 2 3-4" stroke="#c8f135" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>REVENUE <span class="tv">$842K</span> <span class="t-up">↑14.2%</span></span>
+      <span class="t-item"><svg width="10" height="10" fill="none" viewBox="0 0 10 10"><circle cx="5" cy="5" r="3.5" stroke="#c8f135" stroke-width="1.2"/><path d="M5 3v2l1.5 1" stroke="#c8f135" stroke-width="1.2" stroke-linecap="round"/></svg>MARGIN <span class="tv">38.4%</span> <span class="t-up">↑3.1%</span></span>
+      <span class="t-item"><svg width="10" height="10" fill="none" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" rx="1" stroke="#7a7a85" stroke-width="1.2"/><path d="M3 5h4M5 3v4" stroke="#7a7a85" stroke-width="1.2" stroke-linecap="round"/></svg>ORDERS <span class="tv">1,247</span> <span class="t-up">↑8.7%</span></span>
+      <span class="t-item"><svg width="10" height="10" fill="none" viewBox="0 0 10 10"><path d="M1 5l3 3 5-6" stroke="#c8f135" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>SAAS SHARE <span class="tv">45%</span> <span class="t-up">↑ LEADING</span></span>
+      <span class="t-item"><svg width="10" height="10" fill="none" viewBox="0 0 10 10"><path d="M1 3l3 3-3 3M5 9h4" stroke="#ff4d3d" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>AVG ORDER <span class="tv">$675</span> <span class="t-dn">↓2.3%</span></span>
+      <span class="t-item"><svg width="10" height="10" fill="none" viewBox="0 0 10 10"><path d="M1 8l2-3 2 1.5 2-3 2 1" stroke="#3d8eff" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Q4 vs Q3 <span class="tv">+22%</span> <span class="t-up">↑ ON TRACK</span></span>
+      <span class="t-item"><svg width="10" height="10" fill="none" viewBox="0 0 10 10"><path d="M5 1l1.5 3 3.5.5-2.5 2.5.5 3.5L5 8.5 2 10.5l.5-3.5L0 4.5l3.5-.5z" stroke="#f5a623" stroke-width="1" fill="none"/></svg>ENTERPRISE <span class="tv">3.2×</span> <span class="t-up">↑ vs SMB</span></span>
+      <span class="t-item"><svg width="10" height="10" fill="none" viewBox="0 0 10 10"><path d="M1 9V5l2-2 2 2 2-3 2 1" stroke="#2dd4bf" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>DATA QUALITY <span class="tv">94.5%</span> <span class="t-up">↑ CLEAN</span></span>
+    </div>
+  </div>
+
+  <div class="hero">
+    <div class="hero-tag">
+      <svg width="12" height="12" fill="none" viewBox="0 0 12 12"><circle cx="6" cy="6" r="2" fill="#c8f135"/><circle cx="6" cy="6" r="5" stroke="#c8f135" stroke-width="1"/></svg>
+      AI-POWERED DATA ANALYST AGENT
+    </div>
+    <h1 class="hero-h">
+      <span class="r1">INSIGHT</span>
+      <span class="r2">FLOW</span>
+      <span class="r3">TURN&nbsp;&nbsp;RAW&nbsp;&nbsp;DATA&nbsp;&nbsp;INTO&nbsp;&nbsp;REAL&nbsp;&nbsp;DECISIONS</span>
+    </h1>
+    <div class="hero-bottom">
+      <div class="hb-item">
+        <div class="hb-lbl">
+          <svg width="10" height="10" fill="none" viewBox="0 0 10 10"><path d="M1 9V5l2-2 2 2 2-3 2 1" stroke="#3e3e48" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          What it does
+        </div>
+        <div class="hb-val"><strong>Cleans · Analyzes · Visualizes</strong><br>any dataset — zero code needed</div>
+      </div>
+      <div class="hb-item">
+        <div class="hb-lbl">
+          <svg width="10" height="10" fill="none" viewBox="0 0 10 10"><circle cx="5" cy="3.5" r="2" stroke="#3e3e48" stroke-width="1.2"/><path d="M1 9c0-2 1.8-3.5 4-3.5s4 1.5 4 3.5" stroke="#3e3e48" stroke-width="1.2" stroke-linecap="round"/></svg>
+          Built for
+        </div>
+        <div class="hb-val"><strong>Analysts, PMs &amp; Founders</strong><br>who need answers fast</div>
+      </div>
+      <div class="hb-item">
+        <div class="hb-lbl">
+          <svg width="10" height="10" fill="none" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" rx="1" stroke="#3e3e48" stroke-width="1.2"/><path d="M3 5h4M5 3v4" stroke="#3e3e48" stroke-width="1.2" stroke-linecap="round"/></svg>
+          Stack
+        </div>
+        <div class="hb-val"><strong>Claude AI + Pandas + EDA</strong><br>industry-grade pipeline</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cta-row">
+    <input type="file" id="fileInput" hidden onchange="handleUpload(this)">
+
+<button class="cta-btn" onclick="document.getElementById('fileInput').click()">
+      <svg width="16" height="16" fill="none" viewBox="0 0 16 16"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      ANALYZE YOUR DATA
+    </button>
+    <div class="dv"></div>
+    <span class="sample-lbl">TRY SAMPLE →</span>
+    <div class="schip-row">
+      <button class="schip" onclick="loadSample('sales')">
+        <svg width="10" height="10" fill="none" viewBox="0 0 10 10"><path d="M1 8l2-3 2 1.5 2-3 2 1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        SALES
+      </button>
+      <button class="schip" onclick="loadSample('hr')">
+        <svg width="10" height="10" fill="none" viewBox="0 0 10 10"><circle cx="5" cy="3.5" r="2" stroke="currentColor" stroke-width="1.2"/><path d="M1 9c0-2 1.8-3.5 4-3.5s4 1.5 4 3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        HR DATA
+      </button>
+      <button class="schip" onclick="loadSample('finance')">
+        <svg width="10" height="10" fill="none" viewBox="0 0 10 10"><rect x="1" y="3" width="8" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M3 3V2a2 2 0 014 0v1" stroke="currentColor" stroke-width="1.2"/></svg>
+        FINANCE
+      </button>
+      <button class="schip" onclick="loadSample('ecommerce')">
+        <svg width="10" height="10" fill="none" viewBox="0 0 10 10"><path d="M1 2h1.5l1.5 5h4l1-3.5H4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="5" cy="8.5" r=".8" fill="currentColor"/><circle cx="7.5" cy="8.5" r=".8" fill="currentColor"/></svg>
+        E-COMM
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ APP ══════════════ -->
+<div id="app">
+  <div class="atop">
+    <div class="a-logo">IF<b>●</b></div>
+    <div class="asep"></div>
+    <div class="a-file" id="afile">
+      <svg width="11" height="11" fill="none" viewBox="0 0 11 11"><path d="M2 1h5l2 2v7H2z" stroke="currentColor" stroke-width="1.1"/><path d="M7 1v2h2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>
+      no file loaded
+    </div>
+    <div class="atop-r">
+      <span class="clk" id="clk">--:--:--</span>
+      <div class="asep"></div>
+      <div class="sdot" id="sdot"></div>
+      <span class="stxt" id="stxt">Ready</span>
+      <button class="back" onclick="goHome()">
+        <svg width="10" height="10" fill="none" viewBox="0 0 10 10"><path d="M6 2L3 5l3 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        HOME
+      </button>
+    </div>
+  </div>
+
+  <div class="aside">
+    <div class="a-sec">
+      <div class="a-slbl">Workspace</div>
+      <div class="nv on" onclick="gv('dashboard')" id="n-dashboard">
+        <svg class="nv-ic" fill="none" viewBox="0 0 14 14"><rect x="1" y="1" width="5" height="5" stroke="currentColor" stroke-width="1.2"/><rect x="8" y="1" width="5" height="5" stroke="currentColor" stroke-width="1.2"/><rect x="1" y="8" width="5" height="5" stroke="currentColor" stroke-width="1.2"/><rect x="8" y="8" width="5" height="5" stroke="currentColor" stroke-width="1.2"/></svg>
+        Dashboard
+      </div>
+      <div class="nv" onclick="gv('eda')" id="n-eda">
+        <svg class="nv-ic" fill="none" viewBox="0 0 14 14"><polyline points="1,12 4,7 7,9 10,3 13,5" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        EDA
+      </div>
+      <div class="nv" onclick="gv('data')" id="n-data">
+        <svg class="nv-ic" fill="none" viewBox="0 0 14 14"><rect x="1" y="1" width="12" height="12" rx="1" stroke="currentColor" stroke-width="1.2"/><line x1="1" y1="5" x2="13" y2="5" stroke="currentColor" stroke-width="1.2"/><line x1="5" y1="5" x2="5" y2="13" stroke="currentColor" stroke-width="1.2"/></svg>
+        Data Table
+      </div>
+    </div>
+    <div class="a-sec">
+      <div class="a-slbl">Analysis</div>
+      <div class="nv" onclick="gv('cleaning')" id="n-cleaning">
+        <svg class="nv-ic" fill="none" viewBox="0 0 14 14"><path d="M4 2l-3 8h10M1 10h12" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Cleaning Log
+      </div>
+      <div class="nv" onclick="gv('report')" id="n-report">
+        <svg class="nv-ic" fill="none" viewBox="0 0 14 14"><path d="M2 2h6l3 3v7H2z" stroke="currentColor" stroke-width="1.2"/><path d="M8 2v3h3M4 7h5M4 9.5h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        Report
+      </div>
+      <div class="nv" onclick="gv('chat')" id="n-chat">
+        <svg class="nv-ic" fill="none" viewBox="0 0 14 14"><path d="M1 2a1 1 0 011-1h10a1 1 0 011 1v6a1 1 0 01-1 1H8l-3 2V9H2a1 1 0 01-1-1V2z" stroke="currentColor" stroke-width="1.2"/></svg>
+        Ask AI
+        <span class="ai-badge">LIVE</span>
+      </div>
+    </div>
+
+    <!-- sidebar live mini sparkline -->
+    <div class="side-live" id="sideLive" style="display:none">
+      <div class="sl-lbl">
+        <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><circle cx="4" cy="4" r="3" stroke="#c8f135" stroke-width="1"/><circle cx="4" cy="4" r="1.5" fill="#c8f135"/></svg>
+        LIVE REVENUE
+      </div>
+      <div class="sl-val">$842K</div>
+      <div class="sl-sub">↑ +14.2% vs prior period</div>
+      <canvas id="sideSparkCanvas" width="176" height="36"></canvas>
+    </div>
+  </div>
+
+  <div class="main">
+
+    <!-- DASHBOARD -->
+    <div class="view on" id="v-dashboard">
+      <div id="dload" class="load-box">
+        <div class="spin"></div>
+        <div class="ltxt" id="ltxt">Initializing pipeline...</div>
+        <div class="ptrack"><div class="pfill" id="pfill"></div></div>
+      </div>
+      <div id="dcont" style="display:none">
+        <div class="pg-h" id="dh">Dashboard</div>
+        <div class="pg-s" id="ds">—</div>
+        <div class="krow" id="krow"></div>
+        <!-- animated line chart -->
+        <div class="linechart-box">
+          <div class="ct">
+            <svg width="11" height="11" fill="none" viewBox="0 0 11 11"><path d="M1 9V4l2.5-2L6 4l2.5-3L10 3" stroke="#c8f135" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Revenue Trend — Q4 2024
+          </div>
+          <canvas id="lineChart" height="160"></canvas>
+        </div>
+        <div class="cgrid">
+          <div class="cc">
+            <div class="ct">
+              <svg width="11" height="11" fill="none" viewBox="0 0 11 11"><rect x="1" y="5" width="2" height="5" fill="#c8f135" opacity=".5"/><rect x="4.5" y="3" width="2" height="7" fill="#c8f135" opacity=".7"/><rect x="8" y="1" width="2" height="9" fill="#c8f135"/></svg>
+              Performance By Period
+            </div>
+            <div class="blist" id="blist"></div>
+          </div>
+          <div class="cc">
+            <div class="ct">
+              <svg width="11" height="11" fill="none" viewBox="0 0 11 11"><circle cx="5.5" cy="5.5" r="4" stroke="#c8f135" stroke-width="1.2"/><circle cx="5.5" cy="5.5" r="2" stroke="#c8f135" stroke-width="1.2" opacity=".4"/></svg>
+              Revenue Split
+            </div>
+            <div class="dnut-wrap">
+              <svg id="dsvg" width="150" height="150" viewBox="0 0 150 150"></svg>
+              <div class="dnut-c">
+                <div class="dnut-v" id="dv">—</div>
+                <div class="dnut-s" id="ds2">total</div>
+              </div>
+            </div>
+            <div class="leg" id="dleg"></div>
+          </div>
+        </div>
+        <div class="ins-box">
+          <div class="ct">
+            <svg width="11" height="11" fill="none" viewBox="0 0 11 11"><circle cx="5.5" cy="5.5" r="4" stroke="#c8f135" stroke-width="1.2"/><path d="M5.5 3.5v3M5.5 8v.5" stroke="#c8f135" stroke-width="1.2" stroke-linecap="round"/></svg>
+            AI INSIGHTS
+          </div>
+          <ul class="ins-list" id="inslist"></ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- EDA -->
+    <div class="view" id="v-eda">
+      <div id="edaContent"></div>
+      <div class="pg-h">Exploratory Data Analysis</div>
+      <div class="pg-s" id="eda-s">Statistical profiling</div>
+    </div>
+
+    <!-- DATA -->
+    <div class="view" id="v-data">
+      <div class="pg-h">Data Table</div>
+      <div class="pg-s">Cleaned dataset preview</div>
+      <div id="data-c"><div class="load-box"><div class="spin"></div><div class="ltxt">Load a dataset first</div></div></div>
+    </div>
+
+    <!-- CLEANING -->
+    <div class="view" id="v-cleaning">
+      <div class="pg-h">Cleaning Log</div>
+      <div class="pg-s">Automated operations applied to your dataset</div>
+      <div id="clean-c"><div class="load-box"><div class="spin"></div><div class="ltxt">Load a dataset first</div></div></div>
+    </div>
+
+    <!-- REPORT -->
+    <div class="view" id="v-report">
+      <div class="pg-h">Analysis Report</div>
+      <div class="pg-s">Auto-generated executive summary</div>
+      <div id="rep-c"><div class="load-box"><div class="spin"></div><div class="ltxt">Load a dataset first</div></div></div>
+    </div>
+
+    <!-- CHAT -->
+    <div class="view" id="v-chat">
+      <div class="pg-h">Ask AI Analyst</div>
+      <div class="pg-s">Plain-English questions · Data-backed answers</div>
+      <div class="api-strip">
+        <label>
+          <svg width="10" height="10" fill="none" viewBox="0 0 10 10"><rect x="1" y="4" width="8" height="5" rx="1" stroke="#3e3e48" stroke-width="1.1"/><path d="M3 4V3a2 2 0 014 0v1" stroke="#3e3e48" stroke-width="1.1"/></svg>
+          API KEY
+        </label>
+        <input type="password" class="api-inp" id="akey" placeholder="sk-ant-api03-...">
+        <button class="api-sv" onclick="saveKey()">SAVE</button>
+        <span style="font-family:var(--fm);font-size:10px;color:var(--muted2);width:100%">Stored locally in your browser · Get a free key at console.anthropic.com</span>
+      </div>
+      <div class="chat-shell">
+        <div class="cmsgs" id="cmsgs">
+          <div class="cmsg">
+            <div class="cav ai">IF</div>
+            <div class="cbody"><strong>InsightFlow AI online.</strong><br><br>
+            Load a dataset and ask me anything — I'll answer with full data context.<br><br>
+            → "What's driving revenue growth?"<br>
+            → "Which segment has the best margin?"<br>
+            → "Flag data quality issues"<br>
+            → "Write an executive summary"</div>
+          </div>
+        </div>
+        <div class="sqrow">
+          <button class="sq" onclick="qa(this)">
+            <svg width="9" height="9" fill="none" viewBox="0 0 9 9"><path d="M1 7l2-2.5 1.5 1.5 2-3 2 1" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Key insights?
+          </button>
+          <button class="sq" onclick="qa(this)">
+            <svg width="9" height="9" fill="none" viewBox="0 0 9 9"><path d="M1 5l3 3 4-5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Data quality?
+          </button>
+          <button class="sq" onclick="qa(this)">
+            <svg width="9" height="9" fill="none" viewBox="0 0 9 9"><rect x="1" y="3" width="7" height="4" rx="1" stroke="currentColor" stroke-width="1.1"/><path d="M3 3V2a1.5 1.5 0 013 0v1" stroke="currentColor" stroke-width="1.1"/></svg>
+            Revenue drivers?
+          </button>
+          <button class="sq" onclick="qa(this)">
+            <svg width="9" height="9" fill="none" viewBox="0 0 9 9"><circle cx="4.5" cy="4.5" r="3.5" stroke="currentColor" stroke-width="1.1"/><path d="M4.5 2.5v2.5M4.5 6.5v.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>
+            Find anomalies
+          </button>
+          <button class="sq" onclick="qa(this)">
+            <svg width="9" height="9" fill="none" viewBox="0 0 9 9"><path d="M1 8l2-2 1.5 1.5 2-2.5 2 .5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Correlations
+          </button>
+          <button class="sq" onclick="qa(this)">
+            <svg width="9" height="9" fill="none" viewBox="0 0 9 9"><path d="M1 1h7M1 4h7M1 7h4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>
+            Exec summary
+          </button>
+        </div>
+        <div class="cin-row">
+          <textarea class="cin" id="cin" placeholder="Ask about your data..." rows="1"
+            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();doChat()}"
+            oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"></textarea>
+          <button class="sndbtn" onclick="doChat()">
+            <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><path d="M12 7H2M8 3l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+const API_BASE = "http://127.0.0.1:8000";
+const DS={sales:{
+  name:'SalesQ4_2024.csv',rows:1247,
+  cols:['OrderID','Date','Product','Category','Region','Units','Revenue','Profit','Type'],
+  data:[
+    ['ORD-1001','2024-10-03','Laptop Pro 16"','Electronics','North','2','$2,399','$720','Enterprise'],
+    ['ORD-1002','2024-10-05','Ergonomic Chair','Furniture','South','5','$1,250','$375','SMB'],
+    ['ORD-1003','2024-10-08','CRM Suite','SaaS','West','12','$3,600','$2,880','Enterprise'],
+    ['ORD-1004','2024-10-12','Standing Desk','Furniture','East','3','$1,890','$567','SMB'],
+    ['ORD-1005','2024-10-15','Analytics Pro','SaaS','North','8','$4,800','$3,840','Enterprise'],
+    ['ORD-1006','2024-10-18','4K Monitor','Electronics','West','6','$2,940','$882','SMB'],
+    ['ORD-1007','2024-10-22','Cloud Storage','SaaS','South','20','$6,000','$4,800','Enterprise'],
+    ['ORD-1008','2024-10-25','Wireless Mouse','Electronics','East','15','$750','$225','SMB'],
+    ['ORD-1009','2024-11-02','Project Mgr SaaS','SaaS','North','10','$5,000','$4,000','Enterprise'],
+    ['ORD-1010','2024-11-08','Conference Cam','Electronics','West','8','$1,600','$480','SMB'],
+  ],
+  kpis:[
+    {l:'Total Revenue',v:'$842K',d:'+14.2%',up:true,ic:'<svg width="12" height="12" fill="none" viewBox="0 0 12 12"><path d="M1 9l3-3 2 2 5-6" stroke="#c8f135" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',spark:[52,61,58,74,68,82,79,91,88,95]},
+    {l:'Profit Margin',v:'38.4%',d:'+3.1%',up:true,ic:'<svg width="12" height="12" fill="none" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" stroke="#c8f135" stroke-width="1.2"/><path d="M6 4v2.5L8 8" stroke="#c8f135" stroke-width="1.2" stroke-linecap="round"/></svg>',spark:[32,34,33,36,35,37,36,38,37,38]},
+    {l:'Total Orders',v:'1,247',d:'+8.7%',up:true,ic:'<svg width="12" height="12" fill="none" viewBox="0 0 12 12"><rect x="1" y="1" width="10" height="10" rx="1" stroke="#c8f135" stroke-width="1.2"/><path d="M4 6h4M6 4v4" stroke="#c8f135" stroke-width="1.2" stroke-linecap="round"/></svg>',spark:[980,1020,1050,1080,1100,1150,1180,1200,1230,1247]},
+    {l:'Avg Order Value',v:'$675',d:'-2.3%',up:false,ic:'<svg width="12" height="12" fill="none" viewBox="0 0 12 12"><path d="M2 4h8M2 8h8M4 2v8M8 2v8" stroke="#ff4d3d" stroke-width="1.2" stroke-linecap="round"/></svg>',spark:[710,705,700,698,695,690,685,680,678,675]},
+  ],
+  bars:[{l:'October',v:68},{l:'November',v:82},{l:'December',v:95},{l:'Q3 Avg',v:74},{l:'Q4 Avg',v:81}],
+  donut:{total:'$842K',sub:'revenue',items:[{l:'SaaS',p:45,c:'#c8f135'},{l:'Electronics',p:31,c:'#3d8eff'},{l:'Furniture',p:24,c:'#2dd4bf'}]},
+  lineData:[210,185,240,195,268,245,290,275,310,285,330,320,355,342,370,360,388,375,400,390,412,405,422,418,435,428,442,438,452,448,460,456,470,462,478,474,486,482,495,490,502,498,510,506,518,514,522,518,530,526,535,532,540,536,545,542,548,546,551,549],
+  insights:[
+    {t:'ok',tag:'GROWTH',txt:'SaaS leads with 45% revenue share and ~80% margin — highest ROI segment by far'},
+    {t:'warn',tag:'ALERT',txt:'South region conversion 12% below North average — targeted intervention needed'},
+    {t:'ok',tag:'FINDING',txt:'Enterprise customers generate 3.2× more revenue per order than SMB'},
+    {t:'ok',tag:'TREND',txt:'Q4 2024 on pace to beat Q3 by 22% — strong seasonal momentum confirmed'},
+    {t:'bad',tag:'RISK',txt:'Furniture margin (30%) well below company average — pricing review recommended'},
+  ],
+  estats:[
+    {l:'Total Records',v:'1,247',s:'rows post-cleaning',ic:'<svg width="10" height="10" fill="none" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" rx="1" stroke="#c8f135" stroke-width="1.1"/><path d="M3 5h4M5 3v4" stroke="#c8f135" stroke-width="1.1" stroke-linecap="round"/></svg>'},
+    {l:'Features',v:'9',s:'columns',ic:'<svg width="10" height="10" fill="none" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" rx="1" stroke="#c8f135" stroke-width="1.1"/><line x1="1" y1="4" x2="9" y2="4" stroke="#c8f135" stroke-width="1.1"/><line x1="4" y1="4" x2="4" y2="9" stroke="#c8f135" stroke-width="1.1"/></svg>'},
+    {l:'Missing Values',v:'0.96%',s:'12 cells imputed',ic:'<svg width="10" height="10" fill="none" viewBox="0 0 10 10"><path d="M5 1v4M5 7v2" stroke="#f5a623" stroke-width="1.3" stroke-linecap="round"/><circle cx="5" cy="5" r="4" stroke="#f5a623" stroke-width="1.1"/></svg>'},
+    {l:'Duplicates',v:'3',s:'removed',ic:'<svg width="10" height="10" fill="none" viewBox="0 0 10 10"><path d="M1 5l3 3 5-6" stroke="#c8f135" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>'},
+    {l:'Numeric Cols',v:'4',s:'Units, Revenue, Profit',ic:'<svg width="10" height="10" fill="none" viewBox="0 0 10 10"><path d="M2 7V3l1.5 4V3M6 3v4M8 3l1.5 0M8 5h1M8 7h1.5" stroke="#3d8eff" stroke-width="1.1" stroke-linecap="round"/></svg>'},
+    {l:'Categorical',v:'5',s:'Product, Region, Type…',ic:'<svg width="10" height="10" fill="none" viewBox="0 0 10 10"><path d="M1 3h8M1 5h6M1 7h4" stroke="#2dd4bf" stroke-width="1.1" stroke-linecap="round"/></svg>'},
+  ],
+  cleanOps:[
+    {t:'Removed 3 duplicate rows',d:'Exact duplicates on OrderID — dropped silently'},
+    {t:'Standardized date formats',d:'Mixed MM/DD/YYYY and YYYY-MM-DD → ISO 8601'},
+    {t:'Imputed 12 missing Revenue values',d:'Category-group median imputation — flagged in audit log'},
+    {t:'Trimmed whitespace in Region',d:'Leading/trailing spaces removed from 47 entries'},
+    {t:'Outlier detection complete',d:'2 revenue outliers >3σ — flagged with flag_outlier=True, retained'},
+    {t:'Type casting applied',d:'Units and Revenue cast string → numeric (float64/int64)'},
+  ],
+  ctx:'Sales dataset: 1,247 orders, Q4 2024. 4 regions (North best), 3 categories: SaaS 45%, Electronics 31%, Furniture 24%. Revenue $842K (+14.2%), margin 38.4% (+3.1%). Enterprise 3.2× higher order value vs SMB. SaaS ~80% margin, Furniture ~30%. South region underperforming by 12%.'
+}};
+
+let cur=null,chatH=[],ak=localStorage.getItem('if_k')||'';
+if(ak)document.getElementById('akey').value=ak;
+
+// ══ PARTICLE CANVAS (landing) ══
+(function(){
+  const c=document.getElementById('pcvs');
+  const ctx=c.getContext('2d');
+  let W,H,pts=[];
+  function resize(){W=c.width=c.offsetWidth;H=c.height=c.offsetHeight;
+    pts=Array.from({length:45},()=>({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.25,vy:(Math.random()-.5)*.25,r:Math.random()*1.2+.4}));}
+  resize();window.addEventListener('resize',resize);
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    pts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;if(p.x<0||p.x>W)p.vx*=-1;if(p.y<0||p.y>H)p.vy*=-1;
+      ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle='rgba(200,241,53,.22)';ctx.fill();});
+    for(let i=0;i<pts.length;i++)for(let j=i+1;j<pts.length;j++){
+      const d=Math.hypot(pts[i].x-pts[j].x,pts[i].y-pts[j].y);
+      if(d<100){ctx.beginPath();ctx.moveTo(pts[i].x,pts[i].y);ctx.lineTo(pts[j].x,pts[j].y);
+        ctx.strokeStyle=`rgba(200,241,53,${.055*(1-d/100)})`;ctx.lineWidth=.6;ctx.stroke();}}
+    requestAnimationFrame(draw);}
+  draw();
+})();
+
+// ══ LIVE CLOCK ══
+setInterval(()=>{const el=document.getElementById('clk');if(el)el.textContent=new Date().toLocaleTimeString('en-US',{hour12:false});},1000);
+
+// ══ NAV ══
+function enterApp(){document.getElementById('landing').style.display='none';document.getElementById('app').classList.add('on')}
+function goHome(){document.getElementById('landing').style.display='flex';document.getElementById('app').classList.remove('on')}
+function gv(v){
+  document.querySelectorAll('.view').forEach(e=>e.classList.remove('on'));
+  document.querySelectorAll('.nv').forEach(e=>e.classList.remove('on'));
+  document.getElementById('v-'+v).classList.add('on');
+  document.getElementById('n-'+v).classList.add('on');
+}
+function loadSample(key,fn){const d=DS[key]||DS.sales;cur=d;enterApp();document.getElementById('afile').textContent=fn||d.name;gv('dashboard');pipeline(d,fn||d.name);}
+
+function pipeline(d,fn){
+  const steps=['Loading dataset...','Detecting column types...','Removing duplicates...','Imputing missing values...','Computing statistics...','Building charts...','Generating insights...'];
+  let i=0;const pf=document.getElementById('pfill');
+  document.getElementById('dload').style.display='flex';
+  document.getElementById('dcont').style.display='none';
+  setSt('busy','Processing...');
+  const iv=setInterval(()=>{
+    if(i<steps.length){document.getElementById('ltxt').textContent=steps[i];pf.style.width=((i+1)/steps.length*88)+'%';i++;}
+    else{clearInterval(iv);pf.style.width='100%';setTimeout(()=>{
+      document.getElementById('dload').style.display='none';
+      document.getElementById('dcont').style.display='block';
+      bDash(d,fn);bTable(d);bClean(d);bReport(d,fn);
+      setSt('ok','Analysis complete');
+      document.getElementById('sideLive').style.display='block';
+      drawSideSparkline();
+    },300);}
+  },330);
+}
+
+function setSt(s,t){
+  const dot=document.getElementById('sdot'),txt=document.getElementById('stxt');
+  dot.className='sdot'+(s==='busy'?' busy':'');
+  dot.style.background=s==='ok'?'var(--lime)':s==='busy'?'var(--amber)':'var(--muted)';
+  txt.textContent=t;
+}
+
+// ══ SPARKLINE ══
+function drawSparkline(canvas,data,up){
+  if(!canvas)return;
+  const dpr=window.devicePixelRatio||1;
+  const W=canvas.offsetWidth*dpr,H=64;
+  canvas.width=W;canvas.height=H;
+  const ctx=canvas.getContext('2d');
+  ctx.scale(dpr,1);
+  const cW=canvas.offsetWidth;
+  const mn=Math.min(...data),mx=Math.max(...data),range=mx-mn||1;
+  const xs=data.map((_,i)=>i/(data.length-1)*(cW-4)+2);
+  const ys=data.map(v=>H-4-(v-mn)/range*(H-8));
+  const color=up?'#c8f135':'#ff4d3d';
+  const grad=ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0,up?'rgba(200,241,53,.18)':'rgba(255,77,61,.18)');
+  grad.addColorStop(1,'transparent');
+  ctx.beginPath();ctx.moveTo(xs[0],H);
+  xs.forEach((x,i)=>ctx.lineTo(x,ys[i]));
+  ctx.lineTo(xs[xs.length-1],H);ctx.closePath();ctx.fillStyle=grad;ctx.fill();
+  ctx.beginPath();xs.forEach((x,i)=>i===0?ctx.moveTo(x,ys[i]):ctx.lineTo(x,ys[i]));
+  ctx.strokeStyle=color;ctx.lineWidth=1.5;ctx.stroke();
+}
+
+// ══ SIDEBAR SPARKLINE ══
+function drawSideSparkline(){
+  const c=document.getElementById('sideSparkCanvas');if(!c)return;
+  const W=c.width=176,H=c.height=36;
+  const ctx=c.getContext('2d');
+  const data=[52,58,55,68,62,74,70,82,78,88,84,95];
+  const mn=Math.min(...data),mx=Math.max(...data),range=mx-mn;
+  const xs=data.map((_,i)=>i/(data.length-1)*(W-4)+2);
+  const ys=data.map(v=>H-2-(v-mn)/range*(H-4));
+  const grad=ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0,'rgba(200,241,53,.22)');grad.addColorStop(1,'transparent');
+  ctx.beginPath();ctx.moveTo(xs[0],H);
+  xs.forEach((x,i)=>ctx.lineTo(x,ys[i]));
+  ctx.lineTo(xs[xs.length-1],H);ctx.closePath();ctx.fillStyle=grad;ctx.fill();
+  ctx.beginPath();xs.forEach((x,i)=>i===0?ctx.moveTo(x,ys[i]):ctx.lineTo(x,ys[i]));
+  ctx.strokeStyle='#c8f135';ctx.lineWidth=1.5;ctx.stroke();
+  // pulsing dot at end
+  let pr=3,growing=true;
+  setInterval(()=>{
+    const lx=xs[xs.length-1],ly=ys[ys.length-1];
+    ctx.clearRect(lx-12,ly-12,24,24);
+    ctx.beginPath();ctx.arc(lx,ly,2.5,0,Math.PI*2);ctx.fillStyle='#c8f135';ctx.fill();
+    ctx.beginPath();ctx.arc(lx,ly,pr,0,Math.PI*2);ctx.strokeStyle=`rgba(200,241,53,${.5*(1-pr/10)})`;ctx.lineWidth=1;ctx.stroke();
+    if(growing){pr+=.2;if(pr>9)growing=false;}else{pr-=.2;if(pr<3)growing=true;}
+  },25);
+}
+
+// ══ ANIMATED LINE CHART ══
+function drawLineChart(data){
+  const c=document.getElementById('lineChart');if(!c)return;
+  const W=c.width=c.offsetWidth,H=c.height=160;
+  const ctx=c.getContext('2d');
+  const mn=Math.min(...data),mx=Math.max(...data),range=mx-mn;
+  const pad={l:38,r:16,t:10,b:24};
+  const cW=W-pad.l-pad.r,cH=H-pad.t-pad.b;
+  const toX=i=>pad.l+i/(data.length-1)*cW;
+  const toY=v=>pad.t+cH-(v-mn)/range*cH;
+  // static grid + axes
+  function drawBase(){
+    ctx.strokeStyle='rgba(255,255,255,.04)';ctx.lineWidth=1;
+    for(let i=0;i<=4;i++){const y=pad.t+i/4*cH;ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(W-pad.r,y);ctx.stroke();}
+    ctx.font='9px IBM Plex Mono';ctx.fillStyle='rgba(122,122,133,.6)';ctx.textAlign='right';
+    for(let i=0;i<=4;i++){const v=Math.round(mn+(1-i/4)*range);ctx.fillText(v,pad.l-6,pad.t+i/4*cH+3);}
+    // month labels
+    const months=['Oct','Nov','Dec'];ctx.textAlign='center';
+    months.forEach((m,i)=>ctx.fillText(m,pad.l+i/2*cW,H-6));
+  }
+  let progress=0;
+  function frame(){
+    ctx.clearRect(0,0,W,H);drawBase();
+    const n=Math.max(2,Math.floor(data.length*progress));
+    const xs=data.slice(0,n).map((_,i)=>toX(i));
+    const ys=data.slice(0,n).map(v=>toY(v));
+    const grad=ctx.createLinearGradient(0,pad.t,0,pad.t+cH);
+    grad.addColorStop(0,'rgba(200,241,53,.1)');grad.addColorStop(1,'rgba(200,241,53,0)');
+    ctx.beginPath();ctx.moveTo(xs[0],pad.t+cH);
+    xs.forEach((x,i)=>ctx.lineTo(x,ys[i]));
+    ctx.lineTo(xs[xs.length-1],pad.t+cH);ctx.closePath();ctx.fillStyle=grad;ctx.fill();
+    ctx.beginPath();xs.forEach((x,i)=>i===0?ctx.moveTo(x,ys[i]):ctx.lineTo(x,ys[i]));
+    ctx.strokeStyle='#c8f135';ctx.lineWidth=2;ctx.stroke();
+    if(xs.length){
+      ctx.beginPath();ctx.arc(xs[xs.length-1],ys[ys.length-1],3.5,0,Math.PI*2);ctx.fillStyle='#c8f135';ctx.fill();
+    }
+    progress+=.022;if(progress<1)requestAnimationFrame(frame);
+    else{
+      // pulsing end dot
+      let pr=5,gr=true;
+      setInterval(()=>{
+        const lx=toX(data.length-1),ly=toY(data[data.length-1]);
+        ctx.clearRect(lx-14,ly-14,28,28);
+        ctx.beginPath();ctx.arc(lx,ly,3.5,0,Math.PI*2);ctx.fillStyle='#c8f135';ctx.fill();
+        ctx.beginPath();ctx.arc(lx,ly,pr,0,Math.PI*2);ctx.strokeStyle=`rgba(200,241,53,${.45*(1-pr/14)})`;ctx.lineWidth=1.5;ctx.stroke();
+        if(gr){pr+=.25;if(pr>13)gr=false;}else{pr-=.25;if(pr<5)gr=true;}
+      },28);
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+// count-up animation
+function countUp(el,target,delay){
+  setTimeout(()=>{
+    const clean=target.replace(/[^0-9.]/g,'');
+    if(!clean){el.textContent=target;return;}
+    const num=parseFloat(clean);
+    const pre=target.match(/^[^0-9]*/)?.[0]||'';
+    const suf=target.match(/[^0-9.]*$/)?.[0]||'';
+    let t0=null,dur=900;
+    function step(ts){if(!t0)t0=ts;const p=Math.min((ts-t0)/dur,1);const e=1-Math.pow(1-p,3);const v=num*e;
+      el.textContent=pre+(num>=100?Math.round(v).toLocaleString():v.toFixed(num<10&&suf==='%'?1:0))+suf;
+      if(p<1)requestAnimationFrame(step);}
+    requestAnimationFrame(step);
+  },delay);
+}
+
+// ══ DASHBOARD ══
+function bDash(d,fn){
+  document.getElementById('dh').textContent=fn.replace(/\.[^.]+$/,'');
+  document.getElementById('ds').textContent=`${d.rows.toLocaleString()} records · ${d.cols.length} features · pipeline complete`;
+  document.getElementById('krow').innerHTML=d.kpis.map((k,i)=>`
+    <div class="kpi">
+      <div class="klbl">${k.ic} ${k.l}</div>
+      <div class="kval" id="kv${i}">—</div>
+      <div class="kdelta ${k.up?'up':'dn'}">${k.up?'↑':'↓'} ${k.d} vs prior</div>
+      <canvas id="sp${i}" style="height:30px"></canvas>
+    </div>`).join('');
+  d.kpis.forEach((k,i)=>{
+    countUp(document.getElementById('kv'+i),k.v,600+i*120);
+    setTimeout(()=>{const c=document.getElementById('sp'+i);if(c)drawSparkline(c,k.spark,k.up);},300+i*80);
+  });
+  setTimeout(()=>drawLineChart(d.lineData),500);
+  const mx=Math.max(...d.bars.map(b=>b.v));
+  document.getElementById('blist').innerHTML=d.bars.map(b=>`
+    <div class="brow"><span class="blbl">${b.l}</span>
+    <div class="btrk"><div class="bfill" style="width:0%" data-w="${(b.v/mx*100).toFixed(0)}">${b.v}%</div></div></div>`).join('');
+  setTimeout(()=>document.querySelectorAll('.bfill').forEach(e=>e.style.width=e.dataset.w+'%'),100);
+  bDonut(d.donut);
+  document.getElementById('inslist').innerHTML=d.insights.map((it,i)=>`
+    <li class="ins-li" style="animation-delay:${i*.1}s">
+      <span class="ins-n">${String(i+1).padStart(2,'0')}</span>
+      <span class="ins-tag ${it.t}">${it.tag}</span>${it.txt}
+    </li>`).join('');
+}
+
+function bDonut(dd){
+  const svg=document.getElementById('dsvg');
+  const cx=75,cy=75,r=58,inn=36;
+  const tot=dd.items.reduce((s,i)=>s+i.p,0);
+  let prog=0;
+  function draw(){
+    let a=-Math.PI/2;
+    svg.innerHTML=dd.items.map(it=>{
+      const sw=(it.p/tot)*2*Math.PI*Math.min(1,prog);
+      const x1=cx+r*Math.cos(a),y1=cy+r*Math.sin(a),x2=cx+r*Math.cos(a+sw),y2=cy+r*Math.sin(a+sw);
+      const ix1=cx+inn*Math.cos(a),iy1=cy+inn*Math.sin(a),ix2=cx+inn*Math.cos(a+sw),iy2=cy+inn*Math.sin(a+sw);
+      const lg=sw>Math.PI?1:0;
+      const path=sw<.001?'':`<path d="M${ix1},${iy1} L${x1},${y1} A${r},${r} 0 ${lg},1 ${x2},${y2} L${ix2},${iy2} A${inn},${inn} 0 ${lg},0 ${ix1},${iy1}" fill="${it.c}" opacity=".92"/>`;
+      a+=sw;return path;
+    }).join('');
+    prog+=.04;if(prog<1)requestAnimationFrame(draw);
+  }
+  draw();
+  document.getElementById('dv').textContent=dd.total;
+  document.getElementById('ds2').textContent=dd.sub;
+  document.getElementById('dleg').innerHTML=dd.items.map(it=>`
+    <div class="leg-r"><div class="leg-l"><div class="ldot" style="background:${it.c}"></div>${it.l}</div>
+    <span class="lpct">${it.p}%</span></div>`).join('');
+}
+
+// ══ EDA ══
+function bEDA(d){
+  document.getElementById('eda-s').textContent=`${d.rows.toLocaleString()} records · ${d.cols.length} features`;
+  const corr=[['Units','1.00','0.82','0.79','0.24'],['Revenue','0.82','1.00','0.95','0.41'],['Profit','0.79','0.95','1.00','0.67'],['Margin','0.24','0.41','0.67','1.00']];
+  document.getElementById('eda-c').innerHTML=`
+  <div class="egrid">${d.estats.map((s,i)=>`
+    <div class="estat">
+      <div class="elbl">${s.ic} ${s.l}</div>
+      <div class="eval" id="ev${i}">—</div>
+      <div class="esub">${s.s}</div>
+    </div>`).join('')}
+  </div>
+  <div class="qgrid">
+    <div class="cc"><div class="ct">
+      <svg width="11" height="11" fill="none" viewBox="0 0 11 11"><path d="M1 5l3 3 6-6" stroke="#c8f135" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Data Quality Scores
+    </div>
+    ${[['Completeness',96],['Consistency',89],['Uniqueness',99.8],['Validity',94]].map(([l,n])=>`
+      <div style="margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+          <span style="font-family:var(--fm);font-size:10px;color:var(--muted)">${l}</span>
+          <span style="font-family:var(--ff);font-size:14px;color:var(--lime)">${n}%</span>
+        </div>
+        <div style="height:2px;background:var(--s3)">
+          <div class="qb" data-w="${n}" style="height:100%;width:0;background:var(--lime);transition:width 1.1s cubic-bezier(.4,0,.2,1)"></div>
+        </div>
+      </div>`).join('')}
+    </div>
+    <div class="cc"><div class="ct">
+      <svg width="11" height="11" fill="none" viewBox="0 0 11 11"><rect x="1" y="1" width="9" height="9" rx="1" stroke="#c8f135" stroke-width="1.2"/><line x1="1" y1="4" x2="10" y2="4" stroke="#c8f135" stroke-width="1.2"/><line x1="4" y1="4" x2="4" y2="10" stroke="#c8f135" stroke-width="1.2"/></svg>
+      Column Types
+    </div>
+    ${d.cols.map((col,i)=>{
+      const t=['int','date','str','str','str','int','float','float','str'];
+      const cl=['var(--lime)','var(--blue)','var(--muted)','var(--muted)','var(--muted)','var(--lime)','var(--teal)','var(--teal)','var(--muted)'];
+      return`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)">
+        <span style="font-family:var(--fm);font-size:10px;color:var(--muted)">${col}</span>
+        <span style="font-family:var(--fm);font-size:10px;color:${cl[i]||'var(--muted)'}">${t[i]||'str'}</span></div>`;}).join('')}
+    </div>
+  </div>
+  <div class="scatter-box">
+    <div class="ct">
+      <svg width="11" height="11" fill="none" viewBox="0 0 11 11"><circle cx="3" cy="7" r="1.5" fill="#c8f135" opacity=".7"/><circle cx="7" cy="4" r="1.5" fill="#3d8eff" opacity=".7"/><circle cx="5" cy="8" r="1.5" fill="#2dd4bf" opacity=".7"/><circle cx="9" cy="3" r="1.5" fill="#c8f135" opacity=".5"/></svg>
+      Revenue vs Profit — Scatter
+    </div>
+    <canvas id="scatterC" height="160"></canvas>
+  </div>
+  <div class="corrbox">
+    <div class="ct" style="margin-bottom:14px">
+      <svg width="11" height="11" fill="none" viewBox="0 0 11 11"><rect x="1" y="1" width="9" height="9" rx="1" stroke="#c8f135" stroke-width="1.2"/><path d="M4 4h3M4 6h2" stroke="#c8f135" stroke-width="1.2" stroke-linecap="round"/></svg>
+      Correlation Matrix — Numeric Features
+    </div>
+    <div style="display:grid;grid-template-columns:70px repeat(4,1fr);gap:3px">
+      <div></div>${['Units','Revenue','Profit','Margin'].map(h=>`<div style="font-family:var(--fm);font-size:9px;color:var(--muted2);text-align:center;padding:4px;letter-spacing:.5px">${h}</div>`).join('')}
+      ${corr.map(row=>{const[lbl,...vals]=row;return`
+        <div style="font-family:var(--fm);font-size:10px;color:var(--muted);display:flex;align-items:center;padding:3px 0">${lbl}</div>
+        ${vals.map(v=>{const n=parseFloat(v);const bg=n===1?'var(--lime)':n>.8?'rgba(200,241,53,.45)':n>.5?'rgba(200,241,53,.2)':n>.3?'rgba(200,241,53,.08)':'var(--s3)';const tc=n>.6?'var(--black)':'var(--muted)';
+        return`<div style="background:${bg};padding:8px;text-align:center;font-family:var(--fm);font-size:10px;color:${tc}">${v}</div>`;}).join('')}`}).join('')}
+    </div>
+  </div>`;
+  d.estats.forEach((s,i)=>countUp(document.getElementById('ev'+i),s.v,i*140));
+  setTimeout(()=>document.querySelectorAll('.qb').forEach(b=>b.style.width=b.dataset.w+'%'),150);
+  setTimeout(()=>drawScatter(),400);
+}
+
+function drawScatter(){
+  const c=document.getElementById('scatterC');if(!c)return;
+  const W=c.width=c.offsetWidth,H=c.height=160;
+  const ctx=c.getContext('2d');
+  ctx.strokeStyle='rgba(255,255,255,.04)';ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){
+    ctx.beginPath();ctx.moveTo(W*.08+i/4*W*.84,H*.05);ctx.lineTo(W*.08+i/4*W*.84,H*.88);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(W*.08,H*.05+i/4*H*.83);ctx.lineTo(W*.92,H*.05+i/4*H*.83);ctx.stroke();
+  }
+  ctx.font='9px IBM Plex Mono';ctx.fillStyle='rgba(122,122,133,.5)';ctx.textAlign='center';
+  ctx.fillText('Revenue →',W/2,H-3);
+  const pts=Array.from({length:38},()=>({x:Math.random()*W*.8+W*.08,y:Math.random()*H*.8+H*.05,r:Math.random()*3+1.8,c:['#c8f135','#3d8eff','#2dd4bf'][Math.floor(Math.random()*3)]}));
+  let i=0;const iv=setInterval(()=>{
+    if(i>=pts.length){clearInterval(iv);return;}
+    const p=pts[i++];
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle=p.c+'88';ctx.fill();
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.strokeStyle=p.c;ctx.lineWidth=.8;ctx.stroke();
+  },38);
+}
+
+// ══ TABLE ══
+function bTable(d){
+  document.getElementById('data-c').innerHTML=`
+  <div class="tbar">
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <span class="ttag">
+        <svg width="9" height="9" fill="none" viewBox="0 0 9 9"><rect x=".5" y=".5" width="8" height="8" rx=".5" stroke="currentColor" stroke-width="1"/><line x1=".5" y1="3.5" x2="8.5" y2="3.5" stroke="currentColor" stroke-width="1"/></svg>
+        ${d.rows.toLocaleString()} ROWS
+      </span>
+      <span class="ttag">${d.cols.length} COLS</span>
+      <span class="ttag g">
+        <svg width="9" height="9" fill="none" viewBox="0 0 9 9"><path d="M1 5l2.5 2.5 5-5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        CLEANED
+      </span>
+      <span class="ttag a">
+        <svg width="9" height="9" fill="none" viewBox="0 0 9 9"><path d="M4.5 1v4M4.5 6.5v.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><circle cx="4.5" cy="4.5" r="4" stroke="currentColor" stroke-width="1"/></svg>
+        12 IMPUTED
+      </span>
+    </div>
+    <input class="tsrch" placeholder="🔍  search rows..." oninput="ft(this.value)">
+  </div>
+  <div class="twrap">
+    <div class="thead-row"><span style="font-family:var(--ff);font-size:12px;letter-spacing:1px">PREVIEW — FIRST 10 ROWS</span><span class="tmeta">10 of ${d.rows.toLocaleString()}</span></div>
+    <div style="overflow-x:auto"><table class="dtbl">
+      <thead><tr>${d.cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead>
+      <tbody id="tb">${d.data.map((row,ri)=>`<tr style="animation-delay:${ri*.04}s">${row.map((cell,i)=>{
+        let o=cell;
+        if(i===8)o=`<span class="dbadge ${cell==='Enterprise'?'g':'a'}">${cell}</span>`;
+        else if(i===4){const m={North:'b',South:'t',East:'a',West:'g'};o=`<span class="dbadge ${m[cell]||'b'}">${cell}</span>`;}
+        return`<td>${o}</td>`;}).join('')}</tr>`).join('')}
+      </tbody>
+    </table></div>
+  </div>`;
+}
+function ft(q){document.querySelectorAll('#tb tr').forEach(r=>r.style.display=r.textContent.toLowerCase().includes(q.toLowerCase())?'':'none')}
+
+// ══ CLEANING ══
+function bClean(d){
+  document.getElementById('clean-c').innerHTML=`
+  <div class="cstats">
+    ${[['Rows Removed','3','duplicates','<svg width="12" height="12" fill="none" viewBox="0 0 12 12"><path d="M2 6h8M6 2v8" stroke="#c8f135" stroke-width="1.3" stroke-linecap="round"/></svg>'],
+       ['Values Imputed','12','median by group','<svg width="12" height="12" fill="none" viewBox="0 0 12 12"><path d="M6 2v8M2 6l4-4 4 4" stroke="#f5a623" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>'],
+       ['Formats Fixed','2','date standardized','<svg width="12" height="12" fill="none" viewBox="0 0 12 12"><path d="M2 6l3 3 5-6" stroke="#2dd4bf" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>']
+    ].map(([l,v,s,ic])=>`
+      <div class="cst">
+        <div class="elbl">${ic} ${l}</div>
+        <div class="eval">${v}</div>
+        <div class="esub">${s}</div>
+      </div>`).join('')}
+  </div>
+  <div class="tlbox">
+    <div class="ct" style="margin-bottom:16px">
+      <svg width="11" height="11" fill="none" viewBox="0 0 11 11"><circle cx="5.5" cy="5.5" r="4" stroke="#c8f135" stroke-width="1.2"/><path d="M5.5 3.5v3M5.5 8v.5" stroke="#c8f135" stroke-width="1.2" stroke-linecap="round"/></svg>
+      Operation Log
+    </div>
+    ${d.cleanOps.map((op,i)=>`
+      <div class="tl-r" style="animation-delay:${i*.12}s">
+        <div class="tl-l">
+          <div class="tl-d${i===0?' pulse':''}"></div>
+          ${i<d.cleanOps.length-1?'<div class="tl-c"></div>':''}
+        </div>
+        <div class="tl-b">
+          <div class="tl-t">✓ ${op.t}</div>
+          <div class="tl-s">${op.d}</div>
+        </div>
+      </div>`).join('')}
+  </div>`;
+}
+
+// ══ REPORT ══
+function bReport(d,fn){
+  document.getElementById('rep-c').innerHTML=`
+  <div class="erow">
+    <button class="ebtn"><svg width="12" height="12" fill="none" viewBox="0 0 12 12"><path d="M2 2h6l2 2v7H2z" stroke="currentColor" stroke-width="1.2"/><path d="M8 2v2h2M4 7h4M4 9h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg> PDF</button>
+    <button class="ebtn"><svg width="12" height="12" fill="none" viewBox="0 0 12 12"><rect x="1" y="1" width="10" height="10" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M1 5h10M1 8h10M5 1v10" stroke="currentColor" stroke-width="1.2"/></svg> Excel</button>
+    <button class="ebtn"><svg width="12" height="12" fill="none" viewBox="0 0 12 12"><path d="M1 3h10M1 6h10M1 9h6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg> Markdown</button>
+    <button class="ebtn" onclick="gv('chat')"><svg width="12" height="12" fill="none" viewBox="0 0 12 12"><path d="M1 2a1 1 0 011-1h8a1 1 0 011 1v5a1 1 0 01-1 1H7l-2.5 2V8H2a1 1 0 01-1-1V2z" stroke="currentColor" stroke-width="1.2"/></svg> Ask AI to expand →</button>
+  </div>
+  <div class="rcard">
+    <h3><svg width="14" height="14" fill="none" viewBox="0 0 14 14"><path d="M1 7l3 3 9-9" stroke="#c8f135" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg> Executive Summary</h3>
+    <p class="rp">Analysis of <strong>${fn}</strong> reveals strong Q4 2024 performance with <strong>$842K total revenue</strong>, up 14.2% over prior period. SaaS dominates at 45% revenue share with ~80% margins. Enterprise accounts generate 3.2× more revenue per order than SMB despite representing only 34% of order volume.</p>
+  </div>
+  <div class="rcard">
+    <h3><svg width="14" height="14" fill="none" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.5" stroke="#3d8eff" stroke-width="1.4"/><path d="M7 4.5v3M7 9v.5" stroke="#3d8eff" stroke-width="1.4" stroke-linecap="round"/></svg> Data Quality</h3>
+    <p class="rp">Dataset: <strong>1,247 records</strong> across 9 dimensions. Post-cleaning quality score: <strong>94.5%</strong>. Three duplicates removed, 12 values imputed via category-median, dates standardized to ISO 8601. No significant data integrity issues.</p>
+  </div>
+  <div class="rcard">
+    <h3><svg width="14" height="14" fill="none" viewBox="0 0 14 14"><path d="M1 11l3-3.5 2.5 2 3-4.5 3.5 2" stroke="#c8f135" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg> Key Findings</h3>
+    ${d.insights.map(it=>`<div style="padding:10px 0;border-bottom:1px solid var(--line);display:flex;gap:12px;font-size:13px;color:var(--muted);align-items:flex-start">
+      <span style="font-family:var(--fm);font-size:9px;padding:2px 7px;border:1px solid ${it.t==='ok'?'rgba(200,241,53,.3)':it.t==='warn'?'rgba(245,166,35,.3)':'rgba(255,77,61,.3)'};color:${it.t==='ok'?'var(--lime2)':it.t==='warn'?'var(--amber)':'var(--red)'};flex-shrink:0;margin-top:2px;letter-spacing:.5px">${it.tag}</span>${it.txt}
+    </div>`).join('')}
+  </div>
+  <div class="rcard">
+    <h3><svg width="14" height="14" fill="none" viewBox="0 0 14 14"><path d="M1 1h12M1 5h12M1 9h8" stroke="#f5a623" stroke-width="1.4" stroke-linecap="round"/></svg> Recommendations</h3>
+    <p class="rp">
+      <strong>01. Double down on SaaS</strong> — Allocate 60%+ of growth budget. Superior margins, recurring revenue.<br><br>
+      <strong>02. Fix South Region</strong> — 12% conversion gap needs root-cause. Launch targeted campaign Q1 2025.<br><br>
+      <strong>03. Enterprise expansion</strong> — Build loyalty program, grow repeat order rate 34% → 50%.<br><br>
+      <strong>04. Furniture pricing review</strong> — 30% margin below average. Evaluate supplier renegotiation.
+    </p>
+  </div>`;
+}
+
+// ══ CHAT ══
+function saveKey(){ak=document.getElementById('akey').value.trim();localStorage.setItem('if_k',ak);const b=document.querySelector('.api-sv');b.textContent='✓ SAVED';b.style.background='var(--teal)';setTimeout(()=>{b.textContent='SAVE';b.style.background='';},2000);}
+function qa(btn){document.getElementById('cin').value=btn.textContent.trim();doChat();}
+async function doChat(){
+  const inp=document.getElementById('cin'),q=inp.value.trim();if(!q)return;
+  inp.value='';inp.style.height='auto';
+  addM('user',q);
+  const el=addM('ai','<span class="td"></span><span class="td"></span><span class="td"></span>',true);
+  const ctx=cur?`Dataset: ${cur.ctx}`:'No dataset loaded.';
+  const key=ak||localStorage.getItem('if_k')||'';
+  if(!key){el.querySelector('.cbody').innerHTML='⚠ Add your Anthropic API key above. Get one free at <strong>console.anthropic.com</strong>';return;}
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:`You are InsightFlow, a senior data analyst AI. Precise, concise, data-backed. Use bullet points for lists. Reference specific numbers when available. ${ctx}`,messages:[...chatH,{role:'user',content:q}]})});
+    const data=await r.json();
+    if(data.error)throw new Error(data.error.message);
+    const rep=data.content?.find(b=>b.type==='text')?.text||'No response.';
+    chatH.push({role:'user',content:q},{role:'assistant',content:rep});
+    el.querySelector('.cbody').innerHTML=fmt(rep);
+  }catch(e){el.querySelector('.cbody').innerHTML=`Error: ${e.message}`;}
+}
+function fmt(t){return t.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/`(.*?)`/g,'<code style="font-family:var(--fm);font-size:11px;background:var(--s3);padding:1px 5px">$1</code>').replace(/\n/g,'<br>')}
+function addM(type,html,ret){
+  const w=document.getElementById('cmsgs'),d=document.createElement('div');
+  d.className='cmsg'+(type==='user'?' user':'');
+  d.innerHTML=`<div class="cav ${type==='ai'?'ai':'u'}">${type==='ai'?'IF':'U'}</div><div class="cbody">${html}</div>`;
+  w.appendChild(d);w.scrollTop=w.scrollHeight;return ret?d:null;
+}
+async function handleUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  // show app UI
+  enterApp();
+
+  // show filename
+  document.getElementById('afile').textContent = file.name;
+
+  // call backend
+  const fd = new FormData();
+  fd.append("file", file);
+
+  setSt('busy', 'Uploading...');
+
+  const res = await fetch("http://127.0.0.1:8000/upload", {
+  method: "POST",
+  body: fd
+});
+
+  const data = await res.json();
+
+  // ⚠️ IMPORTANT: map backend → your UI structure
+  const transformed = transformBackendData(data, file.name);
+
+  cur = transformed;
+
+  pipeline(transformed, file.name);
+  await loadEDA();
+}
+function transformBackendData(data, filename) {
+  const s = data.summary;
+
+  return {
+    name: filename,
+    rows: s.rows,
+    cols: s.column_names,
+    data: data.preview,
+
+    kpis: [
+      { l: 'Rows', v: s.rows.toString(), d: '', up: true, spark: [10,20,30,40] },
+      { l: 'Columns', v: s.columns.toString(), d: '', up: true, spark: [5,10,15,20] },
+      { l: 'Missing', v: s.missing.toString(), d: '', up: false, spark: [3,6,9,12] },
+      { l: 'Duplicates', v: s.duplicates.toString(), d: '', up: false, spark: [2,4,6,8] }
+    ],
+
+    bars: [],
+    donut: { total: "", sub: "", items: [] },
+
+    insights: [
+      { t: 'ok', tag: 'INFO', txt: `Dataset has ${s.rows} rows and ${s.columns} columns.` },
+      { t: 'warn', tag: 'MISSING', txt: `${s.missing} missing values detected.` },
+      { t: 'bad', tag: 'DUPLICATES', txt: `${s.duplicates} duplicate rows found.` } 
+    ],
+
+    estats: [],
+    cleanOps: [],
+    ctx: "Uploaded dataset"
+  };
+}
+async function loadEDA() {
+  const res = await fetch("http://127.0.0.1:8000/eda");
+  const data = await res.json();
+
+  if (data.error) {
+    document.getElementById("edaContent").innerHTML = data.error;
+    return;
+  }
+
+  renderEDA(data);
+}
+function renderEDA(data) {
+  const desc = data.description;
+  const corr = data.correlation;
+
+  document.getElementById("edaContent").innerHTML = `
+    <div class="card">
+      <h3>Summary Statistics</h3>
+      <pre>${JSON.stringify(desc, null, 2)}</pre>
+    </div>
+
+    <div class="card" style="margin-top:20px;">
+      <h3>Correlation Matrix</h3>
+      <pre>${JSON.stringify(corr, null, 2)}</pre>
+    </div>
+  `;
+}
+</script>
+</body>
+</html>
