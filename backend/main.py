@@ -105,10 +105,10 @@ async def upload(file: UploadFile = File(...)):
         "duplicates": duplicates,
         "numeric_columns": numeric_cols,
         "categorical_columns": categorical_cols,
-        "column_names": list(df.columns),
+        "column_names": list(df.columns)
     },
 
-    "preview": df.head(10).values.tolist(),
+    "preview": df.head(10).fillna("").values.tolist(),
 
     "kpis": kpis
 }
