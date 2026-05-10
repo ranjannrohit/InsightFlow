@@ -610,7 +610,7 @@ html,body{height:100%;background:var(--black);color:var(--white);font-family:var
 </div>
 
 <script>
-const API_BASE = "https://insightflow-backend.onrender.com";
+const API_BASE = "https://insightflow-backend-dedb.onrender.com";
 const DS={sales:{
   name:'SalesQ4_2024.csv',rows:1247,
   cols:['OrderID','Date','Product','Category','Region','Units','Revenue','Profit','Type'],
@@ -857,13 +857,38 @@ function bDash(d,fn){
     countUp(document.getElementById('kv'+i),k.v,600+i*120);
     setTimeout(()=>{const c=document.getElementById('sp'+i);if(c)drawSparkline(c,k.spark,k.up);},300+i*80);
   });
-  setTimeout(()=>drawLineChart(d.lineData),500);
+  if (d.lineData && d.lineData.length > 0) {
+  setTimeout(() => drawLineChart(d.lineData), 500);
+}
   const mx=Math.max(...d.bars.map(b=>b.v));
-  document.getElementById('blist').innerHTML=d.bars.map(b=>`
-    <div class="brow"><span class="blbl">${b.l}</span>
-    <div class="btrk"><div class="bfill" style="width:0%" data-w="${(b.v/mx*100).toFixed(0)}">${b.v}%</div></div></div>`).join('');
-  setTimeout(()=>document.querySelectorAll('.bfill').forEach(e=>e.style.width=e.dataset.w+'%'),100);
+  if (d.bars && d.bars.length > 0) {
+
+  const mx = Math.max(...d.bars.map(b => b.v));
+
+  document.getElementById('blist').innerHTML =
+    d.bars.map(b => `
+      <div class="brow">
+        <span class="blbl">${b.l}</span>
+
+        <div class="btrk">
+          <div class="bfill"
+               style="width:0%"
+               data-w="${(b.v/mx*100).toFixed(0)}">
+               ${b.v}%
+          </div>
+        </div>
+      </div>
+    `).join('');
+
+  setTimeout(() => {
+    document.querySelectorAll('.bfill')
+      .forEach(e => e.style.width = e.dataset.w + '%');
+  }, 100);
+}
+
+  if (d.donut) {
   bDonut(d.donut);
+}
   document.getElementById('inslist').innerHTML=d.insights.map((it,i)=>`
     <li class="ins-li" style="animation-delay:${i*.1}s">
       <span class="ins-n">${String(i+1).padStart(2,'0')}</span>
@@ -1197,6 +1222,7 @@ function transformBackendData(data, filename) {
   { l:'Numeric', v:s.numeric_columns.length.toString(), s:'numeric features', ic:'' },
   { l:'Categorical', v:(s.columns - s.numeric_columns.length).toString(), s:'categorical features', ic:'' }
 ],
+lineData: [10, 20, 15, 30, 25, 40, 35, 50],
     cleanOps: [],
     ctx: "Uploaded dataset"
   };
