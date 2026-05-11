@@ -1,13 +1,34 @@
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
 import pandas as pd
 import numpy as np
+import duckdb
+import sqlite3
+
+from openai import OpenAI
+
+
+# ---------------------------------
+# APP + DB
+# ---------------------------------
 
 app = FastAPI()
+
+con = duckdb.connect("insightflow.db")
+
+client = OpenAI(
+    api_key="YOUR_OPENAI_API_KEY"
+)
+
+DATASTORE = {}
+
 
 # ---------------------------------
 # CORS
 # ---------------------------------
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -16,26 +37,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ---------------------------------
-# GLOBAL DATASTORE
-# ---------------------------------
-DATASTORE = {}
 
 # ---------------------------------
 # ROOT
 # ---------------------------------
+
 @app.get("/")
 def root():
-    return {"status": "InsightFlow Backend Running"}
+    return {
+        "status": "InsightFlow Backend Running"
+    }
+
 
 # ---------------------------------
 # UPLOAD DATASET
 # ---------------------------------
+
 @app.post("/upload")
 async def upload(file: UploadFile = File(...)):
 
-    # ---------- FILE TYPE HANDLING ----------
     try:
+
         if file.filename.endswith(".csv"):
             df = pd.read_csv(file.file)
 
@@ -47,18 +69,34 @@ async def upload(file: UploadFile = File(...)):
 
         else:
             return {
-                "error": "Unsupported file type. Use CSV, XLSX, or JSON."
+                "error": "Unsupported file type"
             }
 
     except Exception as e:
+
         return {
-            "error": f"File processing failed: {str(e)}"
+            "error": str(e)
         }
 
-    # ---------- STORE DATAFRAME ----------
+    # SAVE DATAFRAME
     DATASTORE["df"] = df
 
-    # ---------- BASIC STATS ----------
+    # CREATE SQL TABLE
+    try:
+
+        con.register("temp_df", df)
+
+        con.execute("""
+            CREATE OR REPLACE TABLE uploaded_data AS
+            SELECT * FROM temp_df
+        """)
+
+    except Exception as e:
+
+        return {
+            "error": f"SQL error: {str(e)}"
+        }
+
     rows, cols = df.shape
 
     missing = int(df.isnull().sum().sum())
@@ -73,7 +111,6 @@ async def upload(file: UploadFile = File(...)):
         exclude=np.number
     ).columns.tolist()
 
-    # ---------- KPI CARDS ----------
     kpis = [
         {
             "label": "Rows",
@@ -93,29 +130,58 @@ async def upload(file: UploadFile = File(...)):
         }
     ]
 
-    # ---------- TABLE PREVIEW ----------
-    preview = df.head(10).fillna("").values.tolist()
-
-    # ---------- RESPONSE ----------
     return {
-    "summary": {
-        "rows": rows,
-        "columns": cols,
-        "missing": missing,
-        "duplicates": duplicates,
-        "numeric_columns": numeric_cols,
-        "categorical_columns": categorical_cols,
-        "column_names": list(df.columns)
-    },
 
-    "preview": df.head(10).fillna("").values.tolist(),
+        "summary": {
+            "rows": rows,
+            "columns": cols,
+            "missing": missing,
+            "duplicates": duplicates,
+            "numeric_columns": numeric_cols,
+            "categorical_columns": categorical_cols,
+            "column_names": list(df.columns)
+        },
 
-    "kpis": kpis
-}
+        "preview": (
+            df.head(10)
+            .fillna("")
+            .values.tolist()
+        ),
+
+        "kpis": kpis
+    }
+
+
+# ---------------------------------
+# DATA TABLE
+# ---------------------------------
+
+@app.get("/data")
+def get_data(limit: int = 20):
+
+    df = DATASTORE.get("df")
+
+    if df is None:
+        return {
+            "error": "Upload dataset first"
+        }
+
+    return {
+
+        "columns": list(df.columns),
+
+        "rows": (
+            df.head(limit)
+            .fillna("")
+            .to_dict(orient="records")
+        )
+    }
+
 
 # ---------------------------------
 # EDA
 # ---------------------------------
+
 @app.get("/eda")
 def eda():
 
@@ -127,14 +193,13 @@ def eda():
         }
 
     try:
-        # Statistical summary
+
         description = (
             df.describe(include="all")
             .fillna("")
             .to_dict()
         )
 
-        # Correlation matrix
         correlation = (
             df.corr(numeric_only=True)
             .fillna(0)
@@ -147,37 +212,16 @@ def eda():
         }
 
     except Exception as e:
+
         return {
             "error": str(e)
         }
 
-# ---------------------------------
-# DATA TABLE
-# ---------------------------------
-@app.get("/data")
-def get_data(limit: int = 20):
-
-    df = DATASTORE.get("df")
-
-    if df is None:
-        return {
-            "error": "Upload dataset first"
-        }
-
-    rows = (
-        df.head(limit)
-        .fillna("")
-        .to_dict(orient="records")
-    )
-
-    return {
-        "columns": list(df.columns),
-        "rows": rows
-    }
 
 # ---------------------------------
-# CLEANING INSIGHTS
+# CLEANING
 # ---------------------------------
+
 @app.get("/cleaning")
 def cleaning():
 
@@ -188,104 +232,141 @@ def cleaning():
             "error": "Upload dataset first"
         }
 
-    missing_by_column = (
-        df.isnull()
-        .sum()
-        .to_dict()
-    )
-
-    duplicate_count = int(df.duplicated().sum())
-
     return {
-        "duplicates": duplicate_count,
-        "missing": missing_by_column
+
+        "duplicates": int(df.duplicated().sum()),
+
+        "missing": (
+            df.isnull()
+            .sum()
+            .to_dict()
+        )
     }
 
+
 # ---------------------------------
-# ASK YOUR DATA (AGENT)
+# ASK AI
 # ---------------------------------
+
 @app.post("/ask")
 async def ask(query: dict):
+
+    question = query.get("question")
+
+    if not question:
+
+        return {
+            "error": "No question provided"
+        }
 
     df = DATASTORE.get("df")
 
     if df is None:
-        return {
-            "answer": "Please upload a dataset first."
-        }
-
-    q = query.get("question", "").lower()
-
-    # ---------- MISSING VALUES ----------
-    if "missing" in q:
-
-        missing = df.isnull().sum()
 
         return {
-            "answer": missing.to_string()
+            "error": "Upload dataset first"
         }
 
-    # ---------- DUPLICATES ----------
-    elif "duplicate" in q:
+    try:
 
-        duplicates = int(df.duplicated().sum())
+        columns = ", ".join(df.columns)
 
-        return {
-            "answer": f"Duplicate rows found: {duplicates}"
-        }
+        prompt = f"""
+        You are an expert SQL analyst.
 
-    # ---------- COLUMN NAMES ----------
-    elif "column" in q or "columns" in q:
+        Table name: uploaded_data
 
-        return {
-            "answer": ", ".join(df.columns)
-        }
+        Columns:
+        {columns}
 
-    # ---------- SUMMARY ----------
-    elif "summary" in q or "describe" in q:
+        Generate ONLY SQL query.
+        """
 
-        return {
-            "answer": str(df.describe())
-        }
-
-    # ---------- ROW COUNT ----------
-    elif "rows" in q:
-
-        return {
-            "answer": f"Total rows: {len(df)}"
-        }
-
-    # ---------- NUMERIC COLUMNS ----------
-    elif "numeric" in q:
-
-        numeric_cols = df.select_dtypes(
-            include=np.number
-        ).columns.tolist()
-
-        return {
-            "answer": ", ".join(numeric_cols)
-        }
-
-    # ---------- CATEGORICAL COLUMNS ----------
-    elif "categorical" in q:
-
-        categorical_cols = df.select_dtypes(
-            exclude=np.number
-        ).columns.tolist()
-
-        return {
-            "answer": ", ".join(categorical_cols)
-        }
-
-    # ---------- DEFAULT ----------
-    return {
-        "answer": (
-            "Try asking about:\n"
-            "- missing values\n"
-            "- duplicates\n"
-            "- columns\n"
-            "- summary\n"
-            "- numeric columns\n"
-            "- categorical columns"
+        response = client.chat.completions.create(
+            model="gpt-4.1-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": prompt
+                },
+                {
+                    "role": "user",
+                    "content": question
+                }
+            ],
+            temperature=0
         )
-    }
+
+        sql_query = (
+            response
+            .choices[0]
+            .message.content
+            .replace("```sql", "")
+            .replace("```", "")
+            .strip()
+        )
+
+        result = con.execute(sql_query).fetchdf()
+
+        return {
+
+            "question": question,
+
+            "sql": sql_query,
+
+            "columns": result.columns.tolist(),
+
+            "rows": (
+                result.fillna("")
+                .values.tolist()
+            )
+        }
+
+    except Exception as e:
+
+        return {
+            "error": str(e)
+        }
+
+
+# ---------------------------------
+# RUN RAW SQL
+# ---------------------------------
+
+class SQLQuery(BaseModel):
+    query: str
+
+
+@app.post("/run-sql")
+async def run_sql(q: SQLQuery):
+
+    try:
+
+        df = DATASTORE["df"]
+
+        conn = sqlite3.connect(":memory:")
+
+        df.to_sql(
+            "data",
+            conn,
+            index=False,
+            if_exists="replace"
+        )
+
+        result = pd.read_sql_query(
+            q.query,
+            conn
+        )
+
+        return {
+
+            "columns": result.columns.tolist(),
+
+            "rows": result.values.tolist()
+        }
+
+    except Exception as e:
+
+        return {
+            "error": str(e)
+        }
