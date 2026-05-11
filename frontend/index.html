@@ -358,6 +358,7 @@ html,body{height:100%;background:var(--black);color:var(--white);font-family:var
         </div>
         <div class="hb-val"><strong>Claude AI + Pandas + EDA</strong><br>industry-grade pipeline</div>
       </div>
+      
     </div>
   </div>
 
@@ -439,11 +440,22 @@ html,body{height:100%;background:var(--black);color:var(--white);font-family:var
         Report
       </div>
       <div class="nv" onclick="gv('chat')" id="n-chat">
+        
         <svg class="nv-ic" fill="none" viewBox="0 0 14 14"><path d="M1 2a1 1 0 011-1h10a1 1 0 011 1v6a1 1 0 01-1 1H8l-3 2V9H2a1 1 0 01-1-1V2z" stroke="currentColor" stroke-width="1.2"/></svg>
         Ask AI
         <span class="ai-badge">LIVE</span>
       </div>
     </div>
+    <div class="nv" onclick="gv('sql')" id="n-sql">
+  <svg class="nv-ic" fill="none" viewBox="0 0 14 14">
+    <path d="M2 3h10M2 7h10M2 11h6"
+      stroke="currentColor"
+      stroke-width="1.2"
+      stroke-linecap="round"/>
+  </svg>
+  SQL Playground
+  <span class="ai-badge">LIVE</span>
+</div>
 
     <!-- sidebar live mini sparkline -->
     <div class="side-live" id="sideLive" style="display:none">
@@ -605,6 +617,73 @@ html,body{height:100%;background:var(--black);color:var(--white);font-family:var
         </div>
       </div>
     </div>
+    <!-- SQL PLAYGROUND -->
+<div class="view" id="v-sql">
+
+  <div class="pg-h">SQL Playground</div>
+
+  <div class="pg-s">
+    Run live SQL queries on your uploaded dataset
+  </div>
+
+  <div style="
+    background:var(--s1);
+    border:1px solid var(--line2);
+    padding:18px;
+    margin-bottom:18px;
+  ">
+
+    <div class="ct" style="margin-bottom:12px">
+      LIVE SQL EDITOR
+    </div>
+
+    <textarea
+      id="sqlInput"
+      style="
+        width:100%;
+        height:180px;
+        background:var(--black);
+        color:var(--lime);
+        border:1px solid var(--line2);
+        padding:16px;
+        font-family:var(--fm);
+        font-size:13px;
+        outline:none;
+        resize:vertical;
+      "
+    >SELECT * FROM data LIMIT 10</textarea>
+
+    <button
+      onclick="runSQL()"
+      style="
+        margin-top:14px;
+        background:var(--lime);
+        color:black;
+        border:none;
+        padding:10px 18px;
+        cursor:pointer;
+        font-family:var(--ff);
+        letter-spacing:1px;
+      "
+    >
+      RUN QUERY
+    </button>
+
+  </div>
+
+  <div
+    id="sqlResults"
+    style="
+      background:var(--s1);
+      border:1px solid var(--line2);
+      padding:18px;
+      overflow:auto;
+    "
+  >
+    Query results will appear here
+  </div>
+
+</div>
   </div>
 </div>
 </div>
@@ -709,7 +788,11 @@ function pipeline(d,fn){
     else{clearInterval(iv);pf.style.width='100%';setTimeout(()=>{
       document.getElementById('dload').style.display='none';
       document.getElementById('dcont').style.display='block';
-      bDash(d,fn);bTable(d);bClean(d);bReport(d,fn);
+      bDash(d,fn);
+bEDA(d);
+bTable(d);
+bClean(d);
+bReport(d,fn);
       setSt('ok','Analysis complete');
       document.getElementById('sideLive').style.display='block';
       drawSideSparkline();
@@ -1113,21 +1196,54 @@ function bReport(d,fn){
 function saveKey(){ak=document.getElementById('akey').value.trim();localStorage.setItem('if_k',ak);const b=document.querySelector('.api-sv');b.textContent='✓ SAVED';b.style.background='var(--teal)';setTimeout(()=>{b.textContent='SAVE';b.style.background='';},2000);}
 function qa(btn){document.getElementById('cin').value=btn.textContent.trim();doChat();}
 async function doChat(){
-  const inp=document.getElementById('cin'),q=inp.value.trim();if(!q)return;
-  inp.value='';inp.style.height='auto';
-  addM('user',q);
-  const el=addM('ai','<span class="td"></span><span class="td"></span><span class="td"></span>',true);
-  const ctx=cur?`Dataset: ${cur.ctx}`:'No dataset loaded.';
-  const key=ak||localStorage.getItem('if_k')||'';
-  if(!key){el.querySelector('.cbody').innerHTML='⚠ Add your Anthropic API key above. Get one free at <strong>console.anthropic.com</strong>';return;}
-  try{
-    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:`You are InsightFlow, a senior data analyst AI. Precise, concise, data-backed. Use bullet points for lists. Reference specific numbers when available. ${ctx}`,messages:[...chatH,{role:'user',content:q}]})});
-    const data=await r.json();
-    if(data.error)throw new Error(data.error.message);
-    const rep=data.content?.find(b=>b.type==='text')?.text||'No response.';
-    chatH.push({role:'user',content:q},{role:'assistant',content:rep});
-    el.querySelector('.cbody').innerHTML=fmt(rep);
-  }catch(e){el.querySelector('.cbody').innerHTML=`Error: ${e.message}`;}
+    const inp = document.getElementById('cin');
+    const q = inp.value.trim();
+    if(!q) return;
+    inp.value = '';
+    inp.style.height='auto';
+
+    // show user message
+    addM('user', q);
+
+    // show temporary AI message
+    const el = addM('ai', 'Analyzing dataset...', true);
+
+    try {
+        // send English question to backend /ask
+        const r = await fetch(API_BASE + "/ask", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({question: q})
+        });
+
+        const data = await r.json();
+
+        if(data.error){
+            el.querySelector('.cbody').innerHTML = "Error: " + data.error;
+            return;
+        }
+
+        // display SQL + results table
+        let html = `<strong>SQL Generated:</strong><br><br><code>${data.sql}</code><br><br>`;
+
+        if(data.rows.length > 0){
+            html += `<table border='1' cellpadding='6'><tr>`;
+            data.columns.forEach(col => html += `<th>${col}</th>`);
+            html += "</tr>";
+            data.rows.forEach(row => {
+                html += "<tr>";
+                row.forEach(cell => html += `<td>${cell}</td>`);
+                html += "</tr>";
+            });
+            html += "</table>";
+        }
+
+        el.querySelector('.cbody').innerHTML = html;
+
+    } catch(e){
+        el.querySelector('.cbody').innerHTML = "Server Error";
+        console.log(e);
+    }
 }
 function fmt(t){return t.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/`(.*?)`/g,'<code style="font-family:var(--fm);font-size:11px;background:var(--s3);padding:1px 5px">$1</code>').replace(/\n/g,'<br>')}
 function addM(type,html,ret){
@@ -1168,11 +1284,12 @@ async function handleUpload(input) {
   // transform backend response
   const transformed = transformBackendData(data, file.name);
 
-  cur = transformed;
-  bEDA(transformed);
+console.log(transformed);
 
-  // run UI pipeline
-  pipeline(transformed, file.name);
+cur = transformed;
+
+// run full pipeline
+pipeline(transformed, file.name);
 
   // load EDA
   
@@ -1226,6 +1343,77 @@ lineData: [10, 20, 15, 30, 25, 40, 35, 50],
     cleanOps: [],
     ctx: "Uploaded dataset"
   };
+}
+async function runSQL(){
+
+    const query =
+        document.getElementById('sqlInput').value;
+
+    const box =
+        document.getElementById('sqlResults');
+
+    box.innerHTML = "Running query...";
+
+    try{
+
+        const r = await fetch(
+            API_BASE + "/run-sql",
+            {
+                method:"POST",
+
+                headers:{
+                    "Content-Type":"application/json"
+                },
+
+                body:JSON.stringify({
+                    query:query
+                })
+            }
+        );
+
+        const data = await r.json();
+
+        if(data.error){
+            box.innerHTML =
+                `<span style="color:red">
+                    ${data.error}
+                </span>`;
+            return;
+        }
+
+        let html =
+            `<table class="dtbl">`;
+
+        html += "<thead><tr>";
+
+        data.columns.forEach(col=>{
+            html += `<th>${col}</th>`;
+        });
+
+        html += "</tr></thead><tbody>";
+
+        data.rows.forEach(row=>{
+
+            html += "<tr>";
+
+            row.forEach(cell=>{
+                html += `<td>${cell}</td>`;
+            });
+
+            html += "</tr>";
+        });
+
+        html += "</tbody></table>";
+
+        box.innerHTML = html;
+
+    }catch(e){
+
+        box.innerHTML =
+            `<span style="color:red">
+                Server Error
+            </span>`;
+    }
 }
 </script>
 </body>
