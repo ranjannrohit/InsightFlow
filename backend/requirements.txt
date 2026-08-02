@@ -2,6 +2,10 @@ fastapi
 uvicorn
 pandas
 numpy
+duckdb
+google-generativeai
 python-multipart
 openpyxl
-duckdb
+httpx
+pydantic
+python-dotenv
