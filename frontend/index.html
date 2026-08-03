@@ -347,6 +347,45 @@
       }
     }
 
+    /* LIVE HERO STATS TICKER BAR */
+    .hero-stats-ticker {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      margin-top: 36px;
+      position: relative;
+      z-index: 10;
+      flex-wrap: wrap;
+    }
+
+    .stat-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--fm);
+      font-size: 12px;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 8px 16px;
+      border-radius: 999px;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .stat-item b {
+      color: var(--lime);
+      font-weight: 700;
+    }
+
+    .stat-item:hover {
+      border-color: rgba(212, 255, 42, 0.3);
+      background: rgba(212, 255, 42, 0.06);
+      transform: translateY(-2px);
+    }
+
     /* NAVBAR — 72px HEIGHT, SYMMETRICAL BASELINE */
     .l-nav {
       display: flex;
@@ -562,12 +601,21 @@
       align-items: center;
       justify-content: center;
       gap: 12px;
-      transition: transform 0.15s cubic-bezier(0.1, 0.9, 0.2, 1), background 0.22s ease, box-shadow 0.22s ease;
-      box-shadow: 0 6px 28px rgba(212, 255, 42, 0.22);
+      transition: background 0.22s ease, box-shadow 0.22s ease, transform 0.2s ease;
+      box-shadow: 0 6px 28px rgba(212, 255, 42, 0.25);
       position: relative;
       z-index: 10;
-      transform-style: preserve-3d;
       margin: 0 auto;
+      animation: btnPulseGlow 3s ease-in-out infinite;
+    }
+
+    @keyframes btnPulseGlow {
+      0%, 100% {
+        box-shadow: 0 6px 24px rgba(212, 255, 42, 0.25);
+      }
+      50% {
+        box-shadow: 0 8px 36px rgba(212, 255, 42, 0.48);
+      }
     }
 
     .btn-primary-v3 svg {
@@ -578,7 +626,8 @@
 
     .btn-primary-v3:hover {
       background: #ffffff;
-      box-shadow: 0 8px 36px rgba(255, 255, 255, 0.28);
+      box-shadow: 0 8px 36px rgba(255, 255, 255, 0.35);
+      transform: translateY(-2px);
     }
 
 
@@ -2266,6 +2315,14 @@
           </svg>
           Upload Dataset
         </button>
+
+        <!-- LIVE HERO STATS TICKER BAR -->
+        <div class="hero-stats-ticker">
+          <div class="stat-item"><span class="stat-icon">⚡</span> <b>10M+</b> Rows Analyzed</div>
+          <div class="stat-item"><span class="stat-icon">⏱️</span> <b>&lt; 0.2s</b> Query Speed</div>
+          <div class="stat-item"><span class="stat-icon">🎯</span> <b>99.8%</b> ML Precision</div>
+          <div class="stat-item"><span class="stat-icon">🔒</span> <b>100%</b> Client-Side Privacy</div>
+        </div>
       </div>
     </div>
 
@@ -4205,9 +4262,6 @@
         }
         if (heroDesc) {
           heroDesc.style.transform = `rotateX(${tiltX * 0.6}deg) rotateY(${tiltY * 0.6}deg) translateZ(10px)`;
-        }
-        if (heroBtn) {
-          heroBtn.style.transform = `rotateX(${tiltX * 1.4}deg) rotateY(${tiltY * 1.4}deg) translateZ(40px)`;
         }
 
         requestAnimationFrame(render3DTilt);
