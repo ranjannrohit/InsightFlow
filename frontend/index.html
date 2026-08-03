@@ -601,11 +601,12 @@
       align-items: center;
       justify-content: center;
       gap: 12px;
-      transition: background 0.22s ease, box-shadow 0.22s ease, transform 0.2s ease;
+      transition: background 0.22s ease, box-shadow 0.22s ease;
       box-shadow: 0 6px 28px rgba(212, 255, 42, 0.25);
       position: relative;
       z-index: 10;
       margin: 0 auto;
+      transform: none !important;
       animation: btnPulseGlow 3s ease-in-out infinite;
     }
 
@@ -627,7 +628,7 @@
     .btn-primary-v3:hover {
       background: #ffffff;
       box-shadow: 0 8px 36px rgba(255, 255, 255, 0.35);
-      transform: translateY(-2px);
+      transform: none !important;
     }
 
 
