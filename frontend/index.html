@@ -2622,22 +2622,39 @@
                   </div>
                 </div>
 
-                <!-- Quick Export & AI Questions Card -->
+                <!-- Quick Export & Analytical Performance Graphic Card -->
                 <div class="export-side-col">
                   <div
                     style="background:var(--s2);border:1px solid var(--line2);border-radius:var(--radius-md);padding:18px">
                     <div
-                      style="font-family:var(--fm);font-size:12px;color:var(--blue);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">
-                      🤖 AI Recommended Deep Dives
+                      style="font-family:var(--fm);font-size:12px;color:var(--lime);letter-spacing:1px;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between">
+                      <span>📊 ANALYTICAL PERFORMANCE GAUGES</span>
+                      <span class="ai-badge" style="font-size:9px;padding:2px 6px">REAL-TIME</span>
                     </div>
-                    <div style="display:flex;flex-direction:column;gap:8px">
-                      <button class="schip" onclick="askDeepDive('What are the top 5 key drivers in this dataset?')"
-                        style="justify-content:flex-start">🔍 Top 5 key drivers in this dataset?</button>
-                      <button class="schip" onclick="askDeepDive('Are there any missing values or quality issues?')"
-                        style="justify-content:flex-start">🧹 Data quality & missing value audit?</button>
-                      <button class="schip"
-                        onclick="askDeepDive('Show correlation and outliers between numerical columns.')"
-                        style="justify-content:flex-start">📈 Outliers and correlation analysis?</button>
+
+                    <!-- Graphic 1: Radial Gauge / Performance Chart SVG -->
+                    <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px;padding:4px 0">
+                      <svg width="86" height="86" viewBox="0 0 100 100" style="flex-shrink:0">
+                        <circle cx="50" cy="50" r="40" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="10"/>
+                        <circle cx="50" cy="50" r="40" fill="none" stroke="var(--lime)" stroke-width="10" 
+                          stroke-dasharray="251.2" stroke-dashoffset="40" stroke-linecap="round" 
+                          style="transform:rotate(-90deg);transform-origin:50% 50%;transition:all 1s ease"/>
+                        <circle cx="50" cy="50" r="28" fill="none" stroke="var(--blue)" stroke-width="6" 
+                          stroke-dasharray="175.8" stroke-dashoffset="35" stroke-linecap="round" 
+                          style="transform:rotate(-90deg);transform-origin:50% 50%;transition:all 1s ease"/>
+                        <text x="50" y="54" text-anchor="middle" fill="var(--white)" font-family="var(--ff)" font-size="14" font-weight="700">98.4%</text>
+                      </svg>
+                      <div style="display:flex;flex-direction:column;gap:6px">
+                        <div style="font-family:var(--fm);font-size:11.5px;color:var(--white);display:flex;align-items:center;gap:6px">
+                          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--lime)"></span> Engine Efficiency
+                        </div>
+                        <div style="font-family:var(--fm);font-size:11.5px;color:var(--white);display:flex;align-items:center;gap:6px">
+                          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--blue)"></span> Signal Resolution
+                        </div>
+                        <div style="font-family:var(--fb);font-size:11px;color:var(--muted2)">
+                          Autonomous multi-agent analytical score
+                        </div>
+                      </div>
                     </div>
                   </div>
 
