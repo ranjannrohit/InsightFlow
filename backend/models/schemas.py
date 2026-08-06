@@ -24,3 +24,22 @@ class ForecastRequest(BaseModel):
 
 class PlannerRequest(BaseModel):
     goal: Optional[str] = "Full Agentic Data Analysis"
+
+class SignUpRequest(BaseModel):
+    name: str
+    email: str
+    password: str
+    confirm_password: str
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+    remember_me: Optional[bool] = True
+
+class GoogleAuthRequest(BaseModel):
+    email: str
+    name: str
+    google_id: str
+    profile_photo: Optional[str] = None
+    remember_me: Optional[bool] = True
+

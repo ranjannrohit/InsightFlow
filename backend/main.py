@@ -1,6 +1,7 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Request, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 
@@ -15,103 +16,166 @@ import traceback
 from dotenv import load_dotenv
 import httpx
 
-# ─────────────────────────────────────────────────────────
-# AI PROVIDER SETUP — 100% FREE
-# Priority: Groq (free) → Gemini (free) → Local Pandas Engine
-# ─────────────────────────────────────────────────────────
+import database
+from models.schemas import SignUpRequest, LoginRequest, GoogleAuthRequest
 
-load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-
-_gemini_model = None
-
-
-def get_gemini_model():
-    global _gemini_model
-    if _gemini_model is not None:
-        return _gemini_model
-    if not GEMINI_API_KEY:
-        return None
-    try:
-        import google.generativeai as genai
-        genai.configure(api_key=GEMINI_API_KEY)
-        _gemini_model = genai.GenerativeModel("gemini-2.0-flash")
-        return _gemini_model
-    except Exception:
-        traceback.print_exc()
-        return None
-
-
-def groq_chat_raw(system_prompt: str, user_message: str, temperature: float = 0.2) -> str:
-    if not GROQ_API_KEY:
-        raise RuntimeError("GROQ_API_KEY not set")
-    resp = httpx.post(
-        "https://api.groq.com/openai/v1/chat/completions",
-        headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
-        json={
-            "model": "llama-3.3-70b-versatile",
-            "temperature": temperature,
-            "max_tokens": 1500,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message},
-            ],
-        },
-        timeout=30.0,
-    )
-    resp.raise_for_status()
-    return resp.json()["choices"][0]["message"]["content"]
-
-
-def gemini_chat_raw(system_prompt: str, user_message: str, temperature: float = 0.2) -> str:
-    model = get_gemini_model()
-    if model is None:
-        raise RuntimeError("Gemini not available")
-    import google.generativeai as genai
-    response = model.generate_content(
-        f"{system_prompt}\n\n{user_message}",
-        generation_config=genai.types.GenerationConfig(temperature=temperature, max_output_tokens=1500),
-    )
-    return response.text
-
-
-def ai_chat(system_prompt: str, user_message: str, temperature: float = 0.2) -> str:
-    errors = []
-    if GROQ_API_KEY:
-        try:
-            return groq_chat_raw(system_prompt, user_message, temperature)
-        except Exception as e:
-            errors.append(f"Groq: {e}")
-
-    if GEMINI_API_KEY:
-        try:
-            return gemini_chat_raw(system_prompt, user_message, temperature)
-        except Exception as e:
-            errors.append(f"Gemini: {e}")
-
-    raise RuntimeError(
-        f"All free AI providers unavailable. {'; '.join(errors) if errors else 'No API keys set'}."
-    )
-
-
-def get_active_provider() -> str:
-    if GROQ_API_KEY:
-        return "groq"
-    if GEMINI_API_KEY:
-        return "gemini"
-    return "local"
-
+# ... (omitted setup lines) ...
 
 # ─────────────────────────────────────────────────────────
-# APP SETUP
+# APP SETUP & DATABASE INITIALIZATION
 # ─────────────────────────────────────────────────────────
 
 app = FastAPI(title="InsightFlow PowerBI Engine")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
+# Mount static directories for modular frontend
+frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
+if os.path.exists(frontend_dir):
+    css_dir = os.path.join(frontend_dir, "css")
+    js_dir = os.path.join(frontend_dir, "js")
+    assets_dir = os.path.join(frontend_dir, "assets")
+    if os.path.exists(css_dir):
+        app.mount("/css", StaticFiles(directory=css_dir), name="css")
+    if os.path.exists(js_dir):
+        app.mount("/js", StaticFiles(directory=js_dir), name="js")
+    if os.path.exists(assets_dir):
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
+    @app.get("/", response_class=FileResponse)
+    def read_root():
+        return FileResponse(os.path.join(frontend_dir, "index.html"))
+
+    @app.get("/login", response_class=FileResponse)
+    def read_login():
+        return FileResponse(os.path.join(frontend_dir, "login.html"))
+
+    @app.get("/signup", response_class=FileResponse)
+    def read_signup():
+        return FileResponse(os.path.join(frontend_dir, "signup.html"))
+
+    @app.get("/forgot-password", response_class=FileResponse)
+    def read_forgot_password():
+        return FileResponse(os.path.join(frontend_dir, "forgot-password.html"))
+
+# Initialize SQLite tables
+database.init_db()
+
 DATASTORE: dict = {}
+USER_DATASTORES: Dict[str, dict] = {}
 con = duckdb.connect(":memory:")
+
+
+def get_user_id_from_request(request: Request) -> str:
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header[7:].strip()
+        user = database.get_user_by_token(token)
+        if user:
+            return user["id"]
+    return "guest_user"
+
+
+def get_user_datastore(request: Request) -> dict:
+    uid = get_user_id_from_request(request)
+    if uid not in USER_DATASTORES:
+        USER_DATASTORES[uid] = {}
+    ds = USER_DATASTORES[uid]
+    if "df" not in ds and "df" in DATASTORE:
+        return DATASTORE
+    return ds
+
+
+# ─────────────────────────────────────────────────────────
+# AUTHENTICATION ENDPOINTS
+# ─────────────────────────────────────────────────────────
+
+@app.post("/api/auth/signup")
+def auth_signup(payload: SignUpRequest):
+    if not payload.name or not payload.email or not payload.password:
+        raise HTTPException(status_code=400, detail="Name, email, and password are required")
+    if payload.password != payload.confirm_password:
+        raise HTTPException(status_code=400, detail="Passwords do not match")
+    if len(payload.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters long")
+
+    existing = database.get_user_by_email(payload.email)
+    if existing:
+        raise HTTPException(status_code=400, detail="An account with this email address already exists")
+
+    user = database.create_user(
+        name=payload.name,
+        email=payload.email,
+        password=payload.password
+    )
+    token = database.create_session(user["id"], remember_me=True)
+    return {"user": user, "token": token}
+
+
+@app.post("/api/auth/login")
+def auth_login(payload: LoginRequest):
+    if not payload.email or not payload.password:
+        raise HTTPException(status_code=400, detail="Email and password are required")
+
+    user_db = database.get_user_by_email(payload.email)
+    if not user_db:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    if not database.verify_password(payload.password, user_db.get("password_hash", "")):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    user = database.get_user_by_id(user_db["id"])
+    token = database.create_session(user["id"], remember_me=payload.remember_me)
+    return {"user": user, "token": token}
+
+
+@app.post("/api/auth/google")
+def auth_google(payload: GoogleAuthRequest):
+    if not payload.email or not payload.google_id:
+        raise HTTPException(status_code=400, detail="Google email and User ID are required")
+
+    user_by_g = database.get_user_by_google_id(payload.google_id)
+    if user_by_g:
+        user = database.get_user_by_id(user_by_g["id"])
+    else:
+        user_by_email = database.get_user_by_email(payload.email)
+        if user_by_email:
+            user = database.update_google_user(
+                user_id=user_by_email["id"],
+                google_id=payload.google_id,
+                profile_photo=payload.profile_photo or user_by_email.get("profile_photo")
+            )
+        else:
+            user = database.create_user(
+                name=payload.name or payload.email.split("@")[0].capitalize(),
+                email=payload.email,
+                password=None,
+                google_id=payload.google_id,
+                profile_photo=payload.profile_photo
+            )
+
+    token = database.create_session(user["id"], remember_me=payload.remember_me)
+    return {"user": user, "token": token}
+
+
+@app.get("/api/auth/me")
+def auth_me(request: Request):
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    token = auth_header[7:].strip()
+    user = database.get_user_by_token(token)
+    if not user:
+        raise HTTPException(status_code=401, detail="Session expired or invalid")
+    return {"user": user}
+
+
+@app.post("/api/auth/logout")
+def auth_logout(request: Request):
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header[7:].strip()
+        database.delete_session(token)
+    return {"status": "success", "message": "Logged out successfully"}
 
 
 # ─────────────────────────────────────────────────────────
@@ -218,27 +282,33 @@ def rank_categorical_columns(df: pd.DataFrame) -> List[str]:
 
 @app.get("/")
 def root():
+    frontend_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "index.html")
+    if os.path.exists(frontend_path):
+        return FileResponse(frontend_path)
     return {"status": "InsightFlow PowerBI Engine Running", "version": "4.0-powerbi"}
 
 
+
 @app.get("/status")
-def status():
-    df = DATASTORE.get("df")
+def status(request: Request):
+    ds = get_user_datastore(request)
+    df = ds.get("df")
     has_data = df is not None
     return {
         "backend": "online",
         "dataset_loaded": has_data,
         "dataset_rows": int(df.shape[0]) if has_data else 0,
         "dataset_cols": int(df.shape[1]) if has_data else 0,
-        "dataset_name": DATASTORE.get("name", ""),
+        "dataset_name": ds.get("name", ""),
         "ai_provider": get_active_provider(),
         "groq_ready": bool(GROQ_API_KEY),
         "gemini_ready": bool(GEMINI_API_KEY),
     }
 
 
+
 @app.post("/upload")
-async def upload(file: UploadFile = File(...)):
+async def upload(request: Request, file: UploadFile = File(...)):
     try:
         fname = file.filename or ""
         content = await file.read()
@@ -254,8 +324,12 @@ async def upload(file: UploadFile = File(...)):
     except Exception as e:
         return {"error": f"File read error: {str(e)}"}
 
+    ds = get_user_datastore(request)
+    ds["df"] = df
+    ds["name"] = fname
     DATASTORE["df"] = df
     DATASTORE["name"] = fname
+
 
     try:
         try:

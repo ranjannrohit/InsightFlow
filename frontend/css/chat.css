@@ -1,0 +1,133 @@
+/* ── CHAT STYLES ── */
+.chat-shell {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 200px);
+  max-width: 100%;
+  width: 100%;
+}
+
+.cmsgs {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-bottom: 16px;
+}
+
+.cmsg {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.cav {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--ff);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+}
+
+.cav.ai {
+  background: var(--lime);
+  color: #040507;
+  box-shadow: 0 2px 10px rgba(212, 255, 42, 0.2);
+}
+
+.cav.u {
+  background: var(--s3);
+  color: var(--white);
+  border: 1px solid var(--line2);
+  font-size: 12px;
+}
+
+.cmsg.user {
+  flex-direction: row-reverse;
+}
+
+.cbody {
+  background: var(--s1);
+  border: 1px solid var(--line2);
+  border-radius: 16px 16px 16px 4px;
+  padding: 14px 18px;
+  font-size: 14.5px;
+  line-height: 1.65;
+  max-width: 85%;
+  color: var(--white);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.cbody strong {
+  color: var(--white);
+  font-weight: 600;
+}
+
+.cmsg.user .cbody {
+  background: rgba(212, 255, 42, 0.1);
+  border: 1px solid rgba(212, 255, 42, 0.28);
+  border-radius: 16px 16px 4px 16px;
+  color: var(--white);
+}
+
+.sqrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-bottom: 11px;
+}
+
+.sq {
+  border: 1px solid var(--line2);
+  padding: 6px 14px;
+  font-family: var(--fm);
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  background: transparent;
+  transition: all .1s;
+  letter-spacing: .3px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 20px;
+}
+
+.sq:hover {
+  border-color: var(--lime);
+  color: var(--lime);
+}
+
+.cin-row {
+  border: 1px solid var(--line2);
+  border-radius: var(--radius-lg);
+  padding: 14px 20px;
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  background: var(--s1);
+}
+
+.cin {
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--white);
+  font-family: var(--fb);
+  font-size: 14.5px;
+  flex: 1;
+  resize: none;
+  line-height: 1.5;
+  max-height: 100px;
+}
+
+.cin::placeholder {
+  color: var(--muted2);
+}
