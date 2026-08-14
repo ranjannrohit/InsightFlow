@@ -1,0 +1,388 @@
+/**
+ * InsightFlow — Handcrafted Linear / Notion / Vercel Component Suite
+ * components.css
+ */
+
+/* ═══════════════════════════════════════════════════════════════════
+   1. GLOBAL CANVAS & LAYOUT CONTAINER (MAX WIDTH 1400px)
+   ═══════════════════════════════════════════════════════════════════ */
+.main {
+  background: var(--bg, #040507);
+  overflow-y: auto;
+  min-height: 0;
+  padding: 32px 40px 64px;
+  scroll-behavior: smooth;
+}
+
+.view {
+  max-width: var(--container-max, 1400px);
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   2. PAGE HEADER SYSTEM (TITLE + SUBTITLE + ACTION TOOLBAR)
+   ═══════════════════════════════════════════════════════════════════ */
+.page-header {
+  margin-bottom: var(--space-6, 24px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4, 16px);
+  flex-wrap: wrap;
+}
+
+.page-title, .pg-h {
+  font-family: var(--ff, 'Space Grotesk', sans-serif);
+  font-size: var(--text-2xl, 26px);
+  font-weight: var(--font-extrabold, 800);
+  line-height: var(--leading-tight, 1.12);
+  letter-spacing: -0.03em;
+  color: var(--white, #ffffff);
+  margin: 0 0 var(--space-1, 4px);
+}
+
+.page-subtitle, .pg-s {
+  font-family: var(--fb, 'Plus Jakarta Sans', sans-serif);
+  font-size: var(--text-sm, 13.5px);
+  color: var(--muted, #94a3b8);
+  line-height: var(--leading-normal, 1.55);
+  margin: 0 0 var(--space-6, 24px);
+  max-width: 720px;
+}
+
+.section-title, .ct {
+  font-family: var(--ff);
+  font-size: var(--text-xs, 11.5px);
+  font-weight: var(--font-bold, 700);
+  color: var(--muted2);
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  margin-bottom: var(--space-4, 16px);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   3. HANDCRAFTED CARD SYSTEM (LINEAR / NOTION / STRIPE STYLE)
+   ═══════════════════════════════════════════════════════════════════ */
+.card, .card-header, .card-body, .cc, .rcard, .nt-card, .st-card, .fc-kpi-card, .kpi, .linechart-box, .ins-box, .tlbox, .rpt-card {
+  background: linear-gradient(180deg, rgba(22, 24, 31, 0.7) 0%, rgba(15, 17, 21, 0.85) 100%);
+  border: 1px solid var(--line2, rgba(255, 255, 255, 0.09));
+  border-radius: var(--radius-lg, 14px);
+  padding: var(--space-6, 24px);
+  box-sizing: border-box;
+  position: relative;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition: var(--transition-base);
+}
+
+.card:hover, .cc:hover, .rcard:hover, .nt-card:hover, .st-card:hover, .fc-kpi-card:hover, .kpi:hover, .rpt-card:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  transform: translateY(-2px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 0 0 20px rgba(212, 255, 42, 0.04);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0 var(--space-4, 16px);
+  border-bottom: 1px solid var(--line2);
+  margin-bottom: var(--space-4, 16px);
+}
+
+.card-body {
+  padding: 0;
+}
+
+/* Metric Cards (.metric-card, .kpi, .fc-kpi-card) */
+.metric-card, .kpi, .fc-kpi-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+}
+
+.metric-label, .klabel, .fc-kpi-label {
+  font-family: var(--fm);
+  font-size: var(--text-xs, 10.5px);
+  font-weight: var(--font-semibold, 600);
+  color: var(--muted2);
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+
+.metric-value, .kval, .fc-kpi-val {
+  font-family: var(--ff);
+  font-size: var(--text-3xl, 34px);
+  font-weight: var(--font-bold, 700);
+  color: var(--white);
+  line-height: var(--leading-tight, 1.12);
+  letter-spacing: -0.02em;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   4. HANDCRAFTED BUTTON SYSTEM (NEVER BROWSER DEFAULT)
+   ═══════════════════════════════════════════════════════════════════ */
+button, .btn, .vs-btn, .ebtn, .rpt-btn-action, .rpt-btn-global, .btn-primary-v3, .btn-secondary-v3, .schip {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: var(--fb);
+  font-size: var(--text-sm, 13px);
+  font-weight: var(--font-semibold, 600);
+  border-radius: var(--radius-md, 10px);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2, 8px);
+  white-space: nowrap;
+  user-select: none;
+  transition: var(--transition-base);
+  box-sizing: border-box;
+}
+
+button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--lime);
+  outline-offset: 2px;
+}
+
+/* Primary Button */
+.btn-primary, .btn-p, .vs-btn-primary, .rpt-btn-global, .sndbtn, .cw-add-btn {
+  background: linear-gradient(135deg, #d4ff2a 0%, #b8e600 100%);
+  color: #040507;
+  font-weight: var(--font-bold, 700);
+  height: 44px;
+  padding: 0 var(--space-6, 24px);
+  border: none;
+  border-radius: var(--radius-md, 10px);
+  box-shadow: var(--shadow-glow-lime);
+}
+
+.btn-primary:hover, .btn-p:hover, .vs-btn-primary:hover, .rpt-btn-global:hover, .sndbtn:hover, .cw-add-btn:hover {
+  background: #ffffff;
+  color: #040507;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-glow-white);
+}
+
+/* Secondary Button */
+.btn-secondary, .btn-s, .vs-btn-secondary, .ebtn {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--white);
+  height: 44px;
+  padding: 0 var(--space-5, 22px);
+  border: 1px solid var(--line2);
+  border-radius: var(--radius-md, 10px);
+}
+
+.btn-secondary:hover, .btn-s:hover, .vs-btn-secondary:hover, .ebtn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-2px);
+}
+
+/* Outline Button */
+.btn-outline, .btn-o, .vs-btn-outline, .rpt-btn-action {
+  background: transparent;
+  color: var(--white);
+  height: 40px;
+  padding: 0 var(--space-4, 18px);
+  border: 1px solid var(--line2);
+  border-radius: var(--radius-md, 10px);
+}
+
+.btn-outline:hover, .btn-o:hover, .vs-btn-outline:hover, .rpt-btn-action:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+/* Danger Button */
+.btn-danger {
+  background: rgba(244, 63, 94, 0.12);
+  color: var(--red);
+  height: 44px;
+  padding: 0 var(--space-5, 22px);
+  border: 1px solid rgba(244, 63, 94, 0.35);
+  border-radius: var(--radius-md, 10px);
+}
+
+.btn-danger:hover {
+  background: var(--red);
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+/* Icon Button */
+.icon-btn {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: var(--radius-md, 10px);
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid transparent;
+}
+
+.icon-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--white);
+}
+
+/* Filter Chip Buttons (.schip) */
+.schip {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line2);
+  color: var(--muted);
+  font-family: var(--fb);
+  font-size: var(--text-sm, 13.5px);
+  font-weight: var(--font-medium, 500);
+  height: 36px;
+  padding: 0 var(--space-4, 16px);
+  border-radius: var(--radius-full, 9999px);
+}
+
+.schip:hover, .schip.active {
+  background: rgba(212, 255, 42, 0.12);
+  color: var(--lime);
+  border-color: rgba(212, 255, 42, 0.35);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   5. HANDCRAFTED FORMS, INPUTS & SELECTS
+   ═══════════════════════════════════════════════════════════════════ */
+.input, .select, .textarea, input[type="text"], input[type="email"], input[type="password"], input[type="search"], textarea, select, .cin, .st-form-input, .chart-filter {
+  background: rgba(10, 10, 12, 0.85);
+  border: 1px solid var(--line2, rgba(255, 255, 255, 0.09));
+  color: var(--white, #ffffff);
+  font-family: var(--fb);
+  font-size: var(--text-sm, 13.5px);
+  height: 40px;
+  padding: 0 var(--space-3, 14px);
+  border-radius: var(--radius-md, 10px);
+  outline: none;
+  transition: var(--transition-base);
+  box-sizing: border-box;
+}
+
+.textarea, textarea {
+  height: auto;
+  padding: var(--space-3, 12px) var(--space-3, 14px);
+}
+
+.input:focus, .select:focus, .textarea:focus, input:focus, textarea:focus, select:focus, .cin:focus, .st-form-input:focus, .chart-filter:focus {
+  border-color: var(--lime);
+  box-shadow: 0 0 0 3px rgba(212, 255, 42, 0.14), 0 0 12px rgba(212, 255, 42, 0.08);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   6. HANDCRAFTED BADGES & TAGS
+   ═══════════════════════════════════════════════════════════════════ */
+.badge, .badge-success, .badge-warning, .badge-live, .ai-badge, .fc-badge-up, .fc-badge-down, .rpt-card-tag, .nt-tag, .st-badge-soon, .nv-soon {
+  font-family: var(--fm);
+  font-size: var(--text-xs, 10px);
+  font-weight: var(--font-bold, 700);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm, 4px);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.badge-success, .ai-badge, .fc-badge-up, .badge-live {
+  background: rgba(212, 255, 42, 0.1);
+  color: var(--lime);
+  border: 1px solid rgba(212, 255, 42, 0.25);
+}
+
+.badge-warning {
+  background: rgba(251, 191, 36, 0.1);
+  color: var(--amber);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+}
+
+.st-badge-soon, .nv-soon {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--muted2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   7. TABLES, ALERTS, EMPTY STATES & LOADERS
+   ═══════════════════════════════════════════════════════════════════ */
+.table, table, .dtbl, .fc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--fb);
+  font-size: var(--text-sm, 13px);
+  text-align: left;
+}
+
+.table th, table th, .dtbl th, .fc-table th {
+  font-family: var(--fm);
+  font-size: var(--text-xs, 10.5px);
+  color: var(--muted2);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line2);
+  background: rgba(10, 10, 12, 0.6);
+}
+
+.table td, table td, .dtbl td, .fc-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  color: var(--white);
+}
+
+.empty-state, .load-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-10, 40px) var(--space-4, 16px);
+  gap: var(--space-3, 12px);
+  text-align: center;
+}
+
+.spinner, .spin {
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-top-color: var(--lime);
+  border-radius: 50%;
+  animation: spinLoader 0.8s linear infinite;
+}
+
+@keyframes spinLoader {
+  to { transform: rotate(360deg); }
+}
+
+.avatar, .sb-avatar, .st-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-full, 9999px);
+  background: linear-gradient(135deg, var(--lime), #14b8a6);
+  color: #040507;
+  font-family: var(--ff);
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.divider {
+  height: 1px;
+  background: var(--line2);
+  width: 100%;
+  margin: var(--space-6, 24px) 0;
+}

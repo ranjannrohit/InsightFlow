@@ -9,3 +9,7 @@ openpyxl
 httpx
 pydantic
 python-dotenv
+reportlab
+pytest
+pytest-asyncio
+httpx

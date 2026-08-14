@@ -254,3 +254,116 @@ def run_root_cause_analysis(df: pd.DataFrame, target_metric: str) -> Dict[str, A
         "reasoning_chain": tree,
         "recommendation": f"Focus optimizations on top driver category '{primary_driver}' to achieve highest incremental impact."
     }
+
+
+# ─────────────────────────────────────────────────────────
+# PDF EXECUTIVE REPORT GENERATOR (REPORTLAB)
+# ─────────────────────────────────────────────────────────
+
+def generate_pdf_report_bytes(df: pd.DataFrame, domain: str = "General Analytics") -> bytes:
+    """Generates a professional executive PDF summary report using ReportLab."""
+    import io
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
+    story = []
+
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'DocTitle',
+        parent=styles['Title'],
+        fontName='Helvetica-Bold',
+        fontSize=22,
+        textColor=colors.HexColor("#1e293b"),
+        spaceAfter=12
+    )
+    heading_style = ParagraphStyle(
+        'DocHeading',
+        parent=styles['Heading2'],
+        fontName='Helvetica-Bold',
+        fontSize=14,
+        textColor=colors.HexColor("#0f172a"),
+        spaceBefore=14,
+        spaceAfter=6
+    )
+    body_style = ParagraphStyle(
+        'DocBody',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=10,
+        textColor=colors.HexColor("#334155"),
+        spaceAfter=6
+    )
+
+    # Title & Metadata
+    story.append(Paragraph("InsightFlow Executive Analytics Report", title_style))
+    story.append(Paragraph(f"<b>Domain:</b> {domain} | <b>Generated:</b> {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}", body_style))
+    story.append(Spacer(1, 12))
+
+    # Overview Table
+    num_cols = df.select_dtypes(include=np.number).columns.tolist()
+    cat_cols = df.select_dtypes(exclude=np.number).columns.tolist()
+    missing_count = int(df.isnull().sum().sum())
+    dup_count = int(df.duplicated().sum())
+
+    summary_data = [
+        ["Metric", "Value"],
+        ["Total Rows", f"{len(df):,}"],
+        ["Total Columns", f"{len(df.columns)}"],
+        ["Numeric Features", f"{len(num_cols)}"],
+        ["Categorical Features", f"{len(cat_cols)}"],
+        ["Missing Values", f"{missing_count:,}"],
+        ["Duplicate Rows", f"{dup_count:,}"]
+    ]
+    t = Table(summary_data, colWidths=[200, 300])
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#1e293b")),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.HexColor("#f8fafc"), colors.white]),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0"))
+    ]))
+    story.append(Paragraph("Dataset Overview", heading_style))
+    story.append(t)
+    story.append(Spacer(1, 14))
+
+    # Key Numeric Metrics Table
+    if num_cols:
+        story.append(Paragraph("Key Numerical Statistics", heading_style))
+        stats_data = [["Column", "Mean", "Median", "Min", "Max", "Std Dev"]]
+        for c in num_cols[:6]:
+            s = df[c].dropna()
+            if len(s):
+                stats_data.append([
+                    str(c),
+                    f"{s.mean():,.2f}",
+                    f"{s.median():,.2f}",
+                    f"{s.min():,.2f}",
+                    f"{s.max():,.2f}",
+                    f"{s.std():,.2f}"
+                ])
+        st_table = Table(stats_data, colWidths=[110, 80, 80, 80, 80, 70])
+        st_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#3b82f6")),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.HexColor("#f1f5f9"), colors.white]),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1"))
+        ]))
+        story.append(st_table)
+
+    doc.build(story)
+    buffer.seek(0)
+    return buffer.getvalue()
+

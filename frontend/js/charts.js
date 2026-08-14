@@ -2,13 +2,13 @@
  * InsightFlow — Custom Chart Engine & Visualization Studio
  */
 
-let activeVsChartType = 'bar';
-let vsChartInstance = null;
-let _lastLineChartData = null;
+window.activeVsChartType = window.activeVsChartType || 'bar';
+window.vsChartInstance = window.vsChartInstance || null;
+window._lastLineChartData = window._lastLineChartData || null;
 
 function setVsChartType(type) {
   activeVsChartType = type;
-  document.querySelectorAll('#vs-chart-pills .schip').forEach(btn => {
+  document.querySelectorAll('.vs-pill, #vs-chart-pills .schip').forEach(btn => {
     btn.classList.toggle('active', btn.getAttribute('data-type') === type);
   });
   renderVsStudioChart();
@@ -204,18 +204,34 @@ async function renderVsStudioChart() {
       },
       scales: (type === 'pie' || type === 'doughnut' || type === 'radar') ? {} : {
         x: {
-          grid: { display: showGrid, color: 'rgba(255,255,255,0.06)' },
-          ticks: { color: '#888888', font: { family: 'JetBrains Mono, monospace', size: 11 } }
+          grid: { display: showGrid, color: document.documentElement.getAttribute('data-theme') === 'light' ? 'rgba(15,23,42,0.08)' : 'rgba(255,255,255,0.06)' },
+          ticks: { color: document.documentElement.getAttribute('data-theme') === 'light' ? '#0f172a' : '#94a3b8', font: { family: 'JetBrains Mono, monospace', size: 11 } }
         },
         y: {
-          grid: { display: showGrid, color: 'rgba(255,255,255,0.06)' },
-          ticks: { color: '#888888', font: { family: 'JetBrains Mono, monospace', size: 11 } }
+          grid: { display: showGrid, color: document.documentElement.getAttribute('data-theme') === 'light' ? 'rgba(15,23,42,0.08)' : 'rgba(255,255,255,0.06)' },
+          ticks: { color: document.documentElement.getAttribute('data-theme') === 'light' ? '#0f172a' : '#94a3b8', font: { family: 'JetBrains Mono, monospace', size: 11 } }
         }
       }
     }
   };
 
   vsChartInstance = new Chart(canvas.getContext('2d'), config);
+
+  // Persist to backend POST /api/visualizations
+  try {
+    authFetch(API_BASE + '/api/visualizations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: titleText,
+        chart_type: activeVsChartType,
+        x_column: xCol || null,
+        y_column: yCol || null
+      })
+    }).catch(e => console.warn('Save visualization silent warn:', e));
+  } catch (e) {
+    // Non-blocking save
+  }
 }
 
 function resetVsStudio() {
@@ -239,8 +255,21 @@ function downloadVsChartPNG() {
 }
 
 function downloadVsChartSVG() {
-  alert('SVG Export: Preparing scalable vector graphic for download...');
-  downloadVsChartPNG();
+  const canvas = document.getElementById('vsChartCanvas');
+  if (!canvas) return;
+  const imgData = canvas.toDataURL('image/png');
+  const w = canvas.width || 800;
+  const h = canvas.height || 400;
+  const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">
+    <rect width="100%" height="100%" fill="#090a0f"/>
+    <image href="${imgData}" width="${w}" height="${h}"/>
+  </svg>`;
+  const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.download = `InsightFlow_Chart_${Date.now()}.svg`;
+  link.href = url;
+  link.click();
 }
 
 function renderBarChart(data) {
@@ -305,12 +334,13 @@ function renderLineChart(data) {
   const toY = v => pad.t + cH - (v - mn) / range * cH;
 
   function drawBase() {
-    ctx.strokeStyle = 'rgba(255,255,255,.04)'; ctx.lineWidth = 1;
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    ctx.strokeStyle = isLight ? 'rgba(15,23,42,.1)' : 'rgba(255,255,255,.04)'; ctx.lineWidth = 1;
     for (let i = 0; i <= 4; i++) {
       const y = pad.t + i / 4 * cH;
       ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
     }
-    ctx.font = '9px JetBrains Mono'; ctx.fillStyle = 'rgba(122,122,133,.6)'; ctx.textAlign = 'right';
+    ctx.font = '9px JetBrains Mono'; ctx.fillStyle = isLight ? '#334155' : 'rgba(148,163,184,.8)'; ctx.textAlign = 'right';
     for (let i = 0; i <= 4; i++) {
       const v = mn + (1 - i / 4) * range;
       ctx.fillText(v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v.toFixed(0), pad.l - 6, pad.t + i / 4 * cH + 3);

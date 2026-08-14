@@ -2,7 +2,11 @@
  * InsightFlow — Exploratory Data Analysis (EDA) Engine
  */
 
-let _edaLoaded = false;
+window._edaLoaded = window._edaLoaded || false;
+
+function resetEDA() {
+  window._edaLoaded = false;
+}
 
 async function loadEDA() {
   if (_edaLoaded) return;

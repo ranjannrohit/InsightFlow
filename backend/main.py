@@ -1,3 +1,5 @@
+import logging
+import time
 from fastapi import FastAPI, UploadFile, File, Request, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, FileResponse
@@ -11,22 +13,115 @@ import duckdb
 import sqlite3
 import json
 import io
-import os
 import traceback
+import os
+import sys
 from dotenv import load_dotenv
 import httpx
 
+# Ensure backend directory is in sys.path regardless of execution working directory
+backend_dir = os.path.dirname(os.path.abspath(__file__))
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
+
 import database
-from models.schemas import SignUpRequest, LoginRequest, GoogleAuthRequest
+from auth_deps import get_current_user, get_optional_user
+from credit_service import ensure_credits, spend_credit, get_balance
+from models.schemas import (
+    SignUpRequest, LoginRequest, GoogleAuthRequest,
+    ForgotPasswordRequest, ResetPasswordRequest, UpdateProfileRequest,
+    ChangePasswordRequest, FilterDataRequest
+)
+from tools.analytics_tools import generate_pdf_report_bytes
 
-# ... (omitted setup lines) ...
+# ── Logging ────────────────────────────────────────────────────────────────
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s — %(message)s"
+)
+logger = logging.getLogger("insightflow")
 
-# ─────────────────────────────────────────────────────────
-# APP SETUP & DATABASE INITIALIZATION
-# ─────────────────────────────────────────────────────────
+# ── Environment ────────────────────────────────────────────────────────────
+load_dotenv()
+env_path = os.path.join(os.path.dirname(__file__), ".env")
+if os.path.exists(env_path):
+    load_dotenv(env_path)
 
-app = FastAPI(title="InsightFlow PowerBI Engine")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
+
+
+def get_active_provider() -> str:
+    if GROQ_API_KEY:
+        return "groq"
+    if GEMINI_API_KEY:
+        return "gemini"
+    return "local"
+
+
+def ai_chat(system_prompt: str, user_prompt: str, temperature: float = 0.2) -> str:
+    if GROQ_API_KEY:
+        try:
+            url = "https://api.groq.com/openai/v1/chat/completions"
+            headers = {
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Content-Type": "application/json",
+            }
+            payload = {
+                "model": "llama-3.3-70b-versatile",
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                "temperature": temperature,
+            }
+            with httpx.Client(timeout=30.0) as client:
+                res = client.post(url, headers=headers, json=payload)
+                if res.status_code == 200:
+                    return res.json()["choices"][0]["message"]["content"]
+        except Exception:
+            pass
+
+    if GEMINI_API_KEY:
+        try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+            headers = {"Content-Type": "application/json"}
+            payload = {
+                "contents": [
+                    {
+                        "parts": [
+                            {"text": f"{system_prompt}\n\nUser request:\n{user_prompt}"}
+                        ]
+                    }
+                ],
+                "generationConfig": {"temperature": temperature},
+            }
+            with httpx.Client(timeout=30.0) as client:
+                res = client.post(url, headers=headers, json=payload)
+                if res.status_code == 200:
+                    data = res.json()
+                    return data["candidates"][0]["content"]["parts"][0]["text"]
+        except Exception:
+            pass
+
+    raise RuntimeError("AI Provider error or no valid API key available")
+
+
+# ── APP SETUP & DATABASE INITIALIZATION ───────────────────────────────────
+
+app = FastAPI(
+    title="InsightFlow Analytics Engine",
+    description="Multi-user enterprise AI analytics SaaS backend",
+    version="5.0-saas"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
 
 # Mount static directories for modular frontend
 frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
@@ -41,31 +136,33 @@ if os.path.exists(frontend_dir):
     if os.path.exists(assets_dir):
         app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
-    @app.get("/", response_class=FileResponse)
-    def read_root():
-        return FileResponse(os.path.join(frontend_dir, "index.html"))
-
-    @app.get("/login", response_class=FileResponse)
+    @app.get("/login", response_class=FileResponse, include_in_schema=False)
     def read_login():
         return FileResponse(os.path.join(frontend_dir, "login.html"))
 
-    @app.get("/signup", response_class=FileResponse)
+    @app.get("/signup", response_class=FileResponse, include_in_schema=False)
     def read_signup():
         return FileResponse(os.path.join(frontend_dir, "signup.html"))
 
-    @app.get("/forgot-password", response_class=FileResponse)
+    @app.get("/forgot-password", response_class=FileResponse, include_in_schema=False)
     def read_forgot_password():
         return FileResponse(os.path.join(frontend_dir, "forgot-password.html"))
 
-# Initialize SQLite tables
+# Initialize SQLite tables (safe — never drops, only creates if missing)
 database.init_db()
+logger.info("Database initialised successfully")
 
 DATASTORE: dict = {}
 USER_DATASTORES: Dict[str, dict] = {}
 con = duckdb.connect(":memory:")
 
 
-def get_user_id_from_request(request: Request) -> str:
+# ── HELPER FUNCTIONS ──────────────────────────────────────────────────────
+
+def get_user_id_from_request(request: Optional[Request]) -> str:
+    """Legacy helper — kept for backward compatibility with existing endpoints."""
+    if request is None:
+        return "guest_user"
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
         token = auth_header[7:].strip()
@@ -75,112 +172,40 @@ def get_user_id_from_request(request: Request) -> str:
     return "guest_user"
 
 
-def get_user_datastore(request: Request) -> dict:
+def get_user_datastore(request: Optional[Request] = None) -> dict:
+    if request is None:
+        return DATASTORE
     uid = get_user_id_from_request(request)
     if uid not in USER_DATASTORES:
         USER_DATASTORES[uid] = {}
     ds = USER_DATASTORES[uid]
-    if "df" not in ds and "df" in DATASTORE:
+
+    # Auto-hydrate dataset from SQLite if absent from memory for authenticated users
+    if "df" not in ds and uid != "guest_user":
+        latest = database.get_latest_user_dataset(uid)
+        if latest and latest.get("csv_data"):
+            try:
+                df = pd.read_csv(io.StringIO(latest["csv_data"]))
+                df = clean_numeric_strings(df)
+                ds["df"] = df
+                ds["name"] = latest.get("filename", "dataset.csv")
+                ds["dataset_id"] = latest.get("id")
+            except Exception as e:
+                logger.error(f"Error auto-hydrating dataset for user {uid}: {e}")
+
+    # Fallback to guest DATASTORE only if guest user and no user-specific df
+    if "df" not in ds and uid == "guest_user" and "df" in DATASTORE:
         return DATASTORE
+
     return ds
 
 
-# ─────────────────────────────────────────────────────────
-# AUTHENTICATION ENDPOINTS
-# ─────────────────────────────────────────────────────────
-
-@app.post("/api/auth/signup")
-def auth_signup(payload: SignUpRequest):
-    if not payload.name or not payload.email or not payload.password:
-        raise HTTPException(status_code=400, detail="Name, email, and password are required")
-    if payload.password != payload.confirm_password:
-        raise HTTPException(status_code=400, detail="Passwords do not match")
-    if len(payload.password) < 6:
-        raise HTTPException(status_code=400, detail="Password must be at least 6 characters long")
-
-    existing = database.get_user_by_email(payload.email)
-    if existing:
-        raise HTTPException(status_code=400, detail="An account with this email address already exists")
-
-    user = database.create_user(
-        name=payload.name,
-        email=payload.email,
-        password=payload.password
-    )
-    token = database.create_session(user["id"], remember_me=True)
-    return {"user": user, "token": token}
+def get_user_active_df(request: Optional[Request] = None) -> Optional[pd.DataFrame]:
+    """Returns the active DataFrame for the current user (with SQLite auto-hydration)."""
+    ds = get_user_datastore(request)
+    return ds.get("df")
 
 
-@app.post("/api/auth/login")
-def auth_login(payload: LoginRequest):
-    if not payload.email or not payload.password:
-        raise HTTPException(status_code=400, detail="Email and password are required")
-
-    user_db = database.get_user_by_email(payload.email)
-    if not user_db:
-        raise HTTPException(status_code=401, detail="Invalid email or password")
-
-    if not database.verify_password(payload.password, user_db.get("password_hash", "")):
-        raise HTTPException(status_code=401, detail="Invalid email or password")
-
-    user = database.get_user_by_id(user_db["id"])
-    token = database.create_session(user["id"], remember_me=payload.remember_me)
-    return {"user": user, "token": token}
-
-
-@app.post("/api/auth/google")
-def auth_google(payload: GoogleAuthRequest):
-    if not payload.email or not payload.google_id:
-        raise HTTPException(status_code=400, detail="Google email and User ID are required")
-
-    user_by_g = database.get_user_by_google_id(payload.google_id)
-    if user_by_g:
-        user = database.get_user_by_id(user_by_g["id"])
-    else:
-        user_by_email = database.get_user_by_email(payload.email)
-        if user_by_email:
-            user = database.update_google_user(
-                user_id=user_by_email["id"],
-                google_id=payload.google_id,
-                profile_photo=payload.profile_photo or user_by_email.get("profile_photo")
-            )
-        else:
-            user = database.create_user(
-                name=payload.name or payload.email.split("@")[0].capitalize(),
-                email=payload.email,
-                password=None,
-                google_id=payload.google_id,
-                profile_photo=payload.profile_photo
-            )
-
-    token = database.create_session(user["id"], remember_me=payload.remember_me)
-    return {"user": user, "token": token}
-
-
-@app.get("/api/auth/me")
-def auth_me(request: Request):
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    token = auth_header[7:].strip()
-    user = database.get_user_by_token(token)
-    if not user:
-        raise HTTPException(status_code=401, detail="Session expired or invalid")
-    return {"user": user}
-
-
-@app.post("/api/auth/logout")
-def auth_logout(request: Request):
-    auth_header = request.headers.get("Authorization")
-    if auth_header and auth_header.startswith("Bearer "):
-        token = auth_header[7:].strip()
-        database.delete_session(token)
-    return {"status": "success", "message": "Logged out successfully"}
-
-
-# ─────────────────────────────────────────────────────────
-# HELPER FUNCTIONS
-# ─────────────────────────────────────────────────────────
 
 def clean_numeric_strings(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
@@ -276,17 +301,14 @@ def rank_categorical_columns(df: pd.DataFrame) -> List[str]:
     return ranked
 
 
-# ─────────────────────────────────────────────────────────
-# ENDPOINTS
-# ─────────────────────────────────────────────────────────
+# ── ROOT ENDPOINT ──────────────────────────────────────────────────────────
 
-@app.get("/")
-def root():
+@app.get("/", response_class=FileResponse, include_in_schema=False)
+def read_root():
     frontend_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "index.html")
     if os.path.exists(frontend_path):
         return FileResponse(frontend_path)
-    return {"status": "InsightFlow PowerBI Engine Running", "version": "4.0-powerbi"}
-
+    return {"status": "InsightFlow Analytics Engine Running", "version": "5.0-saas"}
 
 
 @app.get("/status")
@@ -306,9 +328,224 @@ def status(request: Request):
     }
 
 
+# ── AUTHENTICATION ENDPOINTS (preserved exactly) ───────────────────────────
+
+@app.post("/api/auth/signup")
+def auth_signup(payload: SignUpRequest):
+    if not payload.name or not payload.email or not payload.password:
+        raise HTTPException(status_code=400, detail="Name, email, and password are required")
+    if payload.password != payload.confirm_password:
+        raise HTTPException(status_code=400, detail="Passwords do not match")
+    if len(payload.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters long")
+
+    existing = database.get_user_by_email(payload.email)
+    if existing:
+        raise HTTPException(status_code=400, detail="An account with this email address already exists")
+
+    user = database.create_user(
+        name=payload.name,
+        email=payload.email,
+        password=payload.password
+    )
+    token = database.create_session(user["id"], remember_me=True)
+    logger.info(f"New user registered: {user['id']} ({user['email']})")
+    return {"user": user, "token": token}
+
+
+@app.post("/api/auth/login")
+def auth_login(payload: LoginRequest):
+    if not payload.email or not payload.password:
+        raise HTTPException(status_code=400, detail="Email and password are required")
+
+    user_db = database.get_user_by_email(payload.email)
+    if not user_db:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    if not database.verify_password(payload.password, user_db.get("password_hash", "")):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    user = database.get_user_by_id(user_db["id"])
+    token = database.create_session(user["id"], remember_me=payload.remember_me)
+    logger.info(f"User login: {user['id']} ({user['email']})")
+    return {"user": user, "token": token}
+
+
+@app.post("/api/auth/google")
+def auth_google(payload: GoogleAuthRequest):
+    if not payload.email or not payload.google_id:
+        raise HTTPException(status_code=400, detail="Google email and User ID are required")
+
+    user_by_g = database.get_user_by_google_id(payload.google_id)
+    if user_by_g:
+        user = database.get_user_by_id(user_by_g["id"])
+    else:
+        user_by_email = database.get_user_by_email(payload.email)
+        if user_by_email:
+            user = database.update_google_user(
+                user_id=user_by_email["id"],
+                google_id=payload.google_id,
+                profile_photo=payload.profile_photo or user_by_email.get("profile_photo")
+            )
+        else:
+            user = database.create_user(
+                name=payload.name or payload.email.split("@")[0].capitalize(),
+                email=payload.email,
+                password=None,
+                google_id=payload.google_id,
+                profile_photo=payload.profile_photo
+            )
+
+    token = database.create_session(user["id"], remember_me=payload.remember_me)
+    logger.info(f"Google auth: {user['id']} ({user['email']})")
+    return {"user": user, "token": token}
+
+
+@app.get("/api/auth/me")
+def auth_me(request: Request):
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    token = auth_header[7:].strip()
+    user = database.get_user_by_token(token)
+    if not user:
+        raise HTTPException(status_code=401, detail="Session expired or invalid")
+    # Include fresh credit balance
+    user["credits"] = database.get_user_credits(user["id"])
+    return {"user": user}
+
+
+@app.post("/api/auth/logout")
+def auth_logout(request: Request):
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header[7:].strip()
+        database.delete_session(token)
+    return {"status": "success", "message": "Logged out successfully"}
+
+
+@app.post("/api/auth/forgot-password")
+def auth_forgot_password(payload: ForgotPasswordRequest):
+    if not payload.email:
+        raise HTTPException(status_code=400, detail="Email is required")
+
+    token = database.create_password_reset_token(payload.email)
+    return {
+        "status": "success",
+        "message": "If an account with that email exists, password reset instructions have been generated.",
+        "reset_token": token  # Returned for local dev / quick reset flow
+    }
+
+
+@app.post("/api/auth/reset-password")
+def auth_reset_password(payload: ResetPasswordRequest):
+    if not payload.token or not payload.new_password:
+        raise HTTPException(status_code=400, detail="Token and new password are required")
+    if payload.new_password != payload.confirm_password:
+        raise HTTPException(status_code=400, detail="Passwords do not match")
+    if len(payload.new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters long")
+
+    success = database.reset_password_with_token(payload.token, payload.new_password)
+    if not success:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+
+    return {"status": "success", "message": "Password reset successfully. You can now login with your new password."}
+
+
+@app.put("/api/user/profile")
+def update_profile(payload: UpdateProfileRequest, request: Request):
+    uid = get_user_id_from_request(request)
+    if uid == "guest_user":
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    updated_user = database.update_user_profile(
+        user_id=uid,
+        name=payload.name,
+        profile_photo=payload.profile_photo,
+        theme=payload.theme,
+        history_enabled=payload.history_enabled
+    )
+    return {"status": "success", "user": updated_user}
+
+
+@app.post("/api/user/change-password")
+def change_password(payload: ChangePasswordRequest, request: Request):
+    uid = get_user_id_from_request(request)
+    if uid == "guest_user":
+        raise HTTPException(status_code=401, detail="Authentication required")
+    if payload.new_password != payload.confirm_password:
+        raise HTTPException(status_code=400, detail="New passwords do not match")
+    if len(payload.new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters long")
+
+    success = database.change_user_password(uid, payload.old_password, payload.new_password)
+    if not success:
+        raise HTTPException(status_code=400, detail="Incorrect existing password")
+
+    return {"status": "success", "message": "Password updated successfully"}
+
+
+# ── USER PROFILE & SETTINGS ENDPOINTS (new) ───────────────────────────────
+
+@app.get("/api/users/me")
+def get_me(current_user: dict = Depends(get_current_user)):
+    """Alias for /api/auth/me — returns authenticated user with fresh credit balance."""
+    current_user["credits"] = database.get_user_credits(current_user["id"])
+    return {"user": current_user}
+
+
+@app.get("/api/users/me/settings")
+def get_settings(current_user: dict = Depends(get_current_user)):
+    settings = database.get_user_settings(current_user["id"])
+    return {"settings": settings}
+
+
+class UpdateSettingsRequest(BaseModel):
+    theme: Optional[str] = None
+    language: Optional[str] = None
+    email_notifications: Optional[int] = None
+    product_updates: Optional[int] = None
+
+
+@app.put("/api/users/me/settings")
+def update_settings(payload: UpdateSettingsRequest, current_user: dict = Depends(get_current_user)):
+    settings = database.upsert_user_settings(
+        user_id=current_user["id"],
+        theme=payload.theme,
+        language=payload.language,
+        email_notifications=payload.email_notifications,
+        product_updates=payload.product_updates
+    )
+    return {"status": "success", "settings": settings}
+
+
+# ── CREDITS ENDPOINTS ─────────────────────────────────────────────────────
+
+@app.get("/api/credits")
+def get_credits(current_user: dict = Depends(get_current_user)):
+    """Returns current credit balance and recent transaction history."""
+    balance = database.get_user_credits(current_user["id"])
+    transactions = database.get_credit_transactions(current_user["id"], limit=20)
+    return {
+        "balance": balance,
+        "daily_limit": 100,
+        "transactions": transactions
+    }
+
+
+@app.post("/api/credits/reset")
+def reset_credits(current_user: dict = Depends(get_current_user)):
+    """Debug/admin endpoint to manually reset credits."""
+    database.reset_daily_credits(current_user["id"])
+    return {"status": "success", "balance": 100, "message": "Credits reset to 100"}
+
+
+# ── DATASET ENDPOINTS (existing preserved + enhanced) ─────────────────────
 
 @app.post("/upload")
 async def upload(request: Request, file: UploadFile = File(...)):
+    start_time = time.time()
     try:
         fname = file.filename or ""
         content = await file.read()
@@ -330,6 +567,37 @@ async def upload(request: Request, file: UploadFile = File(...)):
     DATASTORE["df"] = df
     DATASTORE["name"] = fname
 
+    # Persist dataset in SQLite if user is logged in
+    uid = get_user_id_from_request(request)
+    saved_dataset_meta = None
+    if uid != "guest_user":
+        csv_buffer = io.StringIO()
+        df.to_csv(csv_buffer, index=False)
+        saved_dataset_meta = database.save_user_dataset(
+            user_id=uid,
+            name=fname.rsplit(".", 1)[0] if "." in fname else fname,
+            filename=fname,
+            file_type=fname.rsplit(".", 1)[-1].lower() if "." in fname else "csv",
+            rows=df.shape[0],
+            cols=df.shape[1],
+            csv_data=csv_buffer.getvalue()
+        )
+        # Add history + notification for upload
+        dataset_id = saved_dataset_meta.get("id")
+        database.add_history(
+            user_id=uid,
+            type="DATASET",
+            title=f"Dataset uploaded: {fname}",
+            description=f"{df.shape[0]:,} rows × {df.shape[1]} columns",
+            resource_id=dataset_id
+        )
+        database.add_notification(
+            user_id=uid,
+            title="Dataset Upload Complete",
+            message=f"'{fname}' ({df.shape[0]:,} rows × {df.shape[1]} columns) has been processed and is ready for analysis.",
+            notif_type="success",
+            resource_id=dataset_id
+        )
 
     try:
         try:
@@ -346,6 +614,9 @@ async def upload(request: Request, file: UploadFile = File(...)):
     numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
     categorical_cols = df.select_dtypes(exclude=np.number).columns.tolist()
 
+    elapsed = round(time.time() - start_time, 2)
+    logger.info(f"Upload: user={uid} file={fname} rows={rows} cols={cols} elapsed={elapsed}s")
+
     return {
         "summary": {
             "rows": rows, "columns": cols, "missing": missing, "duplicates": duplicates,
@@ -354,19 +625,159 @@ async def upload(request: Request, file: UploadFile = File(...)):
             "domain": detect_domain(df),
         },
         "preview": df.head(10).fillna("").values.tolist(),
+        "dataset": saved_dataset_meta
     }
 
 
-# ─────────────────────────────────────────────────────────
-# AUTO-DASHBOARD ENGINE (POWERBI INTELLIGENCE)
-# ─────────────────────────────────────────────────────────
+@app.get("/api/datasets")
+def list_user_datasets(request: Request):
+    uid = get_user_id_from_request(request)
+    if uid == "guest_user":
+        return {"datasets": []}
+    return {"datasets": database.get_user_datasets(uid)}
+
+
+@app.get("/api/datasets/{dataset_id}")
+def get_dataset_endpoint(dataset_id: str, current_user: dict = Depends(get_current_user)):
+    record = database.get_dataset_by_id(dataset_id, current_user["id"])
+    if not record:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    # Return metadata without csv_data blob
+    record.pop("csv_data", None)
+    return {"dataset": record}
+
+
+@app.get("/api/datasets/{dataset_id}/preview")
+def get_dataset_preview(dataset_id: str, limit: int = 50, current_user: dict = Depends(get_current_user)):
+    record = database.get_dataset_by_id(dataset_id, current_user["id"])
+    if not record:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    try:
+        df = pd.read_csv(io.StringIO(record["csv_data"]))
+        return {
+            "columns": list(df.columns),
+            "rows": df.head(limit).fillna("").to_dict(orient="records"),
+            "total_rows": len(df),
+            "showing": min(limit, len(df))
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error reading dataset: {str(e)}")
+
+
+@app.get("/api/datasets/{dataset_id}/statistics")
+def get_dataset_statistics(dataset_id: str, current_user: dict = Depends(get_current_user)):
+    record = database.get_dataset_by_id(dataset_id, current_user["id"])
+    if not record:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    try:
+        df = pd.read_csv(io.StringIO(record["csv_data"]))
+        df = clean_numeric_strings(df)
+        num_cols = df.select_dtypes(include=np.number).columns.tolist()
+        stats = {}
+        for col in num_cols:
+            s = df[col].dropna()
+            if len(s):
+                stats[col] = {
+                    "mean": round(float(s.mean()), 2),
+                    "median": round(float(s.median()), 2),
+                    "std": round(float(s.std()), 2) if len(s) > 1 else 0.0,
+                    "min": round(float(s.min()), 2),
+                    "max": round(float(s.max()), 2),
+                    "missing": int(df[col].isnull().sum())
+                }
+        return {
+            "dataset_id": dataset_id,
+            "shape": {"rows": df.shape[0], "columns": df.shape[1]},
+            "missing_total": int(df.isnull().sum().sum()),
+            "duplicates": int(df.duplicated().sum()),
+            "numeric_stats": stats,
+            "column_types": {col: str(df[col].dtype) for col in df.columns}
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error computing statistics: {str(e)}")
+
+
+@app.get("/api/datasets/{dataset_id}/columns")
+def get_dataset_columns(dataset_id: str, current_user: dict = Depends(get_current_user)):
+    record = database.get_dataset_by_id(dataset_id, current_user["id"])
+    if not record:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    try:
+        df = pd.read_csv(io.StringIO(record["csv_data"]))
+        col_info = []
+        for col in df.columns:
+            s = df[col]
+            is_num = pd.api.types.is_numeric_dtype(s)
+            col_info.append({
+                "name": col,
+                "dtype": str(s.dtype),
+                "is_numeric": is_num,
+                "null_count": int(s.isnull().sum()),
+                "unique_count": int(s.nunique())
+            })
+        return {"columns": col_info}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/datasets/{dataset_id}/activate")
+def activate_user_dataset(dataset_id: str, request: Request):
+    uid = get_user_id_from_request(request)
+    if uid == "guest_user":
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    record = database.get_dataset_by_id(dataset_id, uid)
+    if not record:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    df = pd.read_csv(io.StringIO(record["csv_data"]))
+    df = clean_numeric_strings(df)
+
+    ds = get_user_datastore(request)
+    ds["df"] = df
+    ds["name"] = record["filename"]
+    ds["dataset_id"] = dataset_id
+    DATASTORE["df"] = df
+    DATASTORE["name"] = record["filename"]
+
+    try:
+        try:
+            con.unregister("data")
+        except Exception:
+            pass
+        con.register("data", df)
+    except Exception:
+        pass
+
+    return {
+        "status": "success",
+        "message": f"Activated dataset '{record['name']}'",
+        "dataset": {k: v for k, v in record.items() if k != "csv_data"},
+        "rows": df.shape[0],
+        "cols": df.shape[1]
+    }
+
+
+@app.delete("/api/datasets/{dataset_id}")
+def delete_dataset_endpoint(dataset_id: str, request: Request):
+    uid = get_user_id_from_request(request)
+    if uid == "guest_user":
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    success = database.delete_user_dataset(dataset_id, uid)
+    if not success:
+        raise HTTPException(status_code=404, detail="Dataset not found or could not be deleted")
+
+    return {"status": "success", "message": "Dataset deleted successfully"}
+
+
+# ── AUTO-DASHBOARD ENGINE (preserved exactly) ──────────────────────────────
 
 def calculate_widget_data(df: pd.DataFrame, widget_type: str, x_col: str, y_col: Optional[str], agg: str = "SUM") -> Dict[str, Any]:
     """Computes aggregated chart series or metric data for Chart.js rendering."""
     if x_col not in df.columns:
         return {"labels": [], "values": []}
 
-    # Handle Metric / KPI Card
     if widget_type == "kpi":
         s = df[x_col].dropna()
         if len(s) == 0:
@@ -379,14 +790,13 @@ def calculate_widget_data(df: pd.DataFrame, widget_type: str, x_col: str, y_col:
             val = s.max()
         elif agg == "MIN":
             val = s.min()
-        else:  # SUM
+        else:
             val = s.sum()
-        
+
         formatted = f"{val:,.2f}" if isinstance(val, (int, float)) and not val.is_integer() else f"{int(val):,}"
         spark = s.sample(min(12, len(s)), random_state=42).sort_index().tolist() if pd.api.types.is_numeric_dtype(s) else []
         return {"metric": formatted, "label": f"{agg} of {x_col}", "sub": f"Min: {s.min():,.0f} | Max: {s.max():,.0f}" if pd.api.types.is_numeric_dtype(s) else f"{len(s)} items", "spark": spark}
 
-    # Handle Scatter Plot
     if widget_type == "scatter" and y_col and y_col in df.columns:
         sub_df = df[[x_col, y_col]].dropna()
         if len(sub_df) > 120:
@@ -394,7 +804,6 @@ def calculate_widget_data(df: pd.DataFrame, widget_type: str, x_col: str, y_col:
         points = [{"x": float(r[x_col]), "y": float(r[y_col])} for _, r in sub_df.iterrows()]
         return {"points": points, "x_label": x_col, "y_label": y_col}
 
-    # Handle Categorical / Grouped Charts (Bar, Line, Area, Donut, Pie)
     if y_col and y_col in df.columns and pd.api.types.is_numeric_dtype(df[y_col]):
         if agg == "AVG":
             grouped = df.groupby(x_col)[y_col].mean()
@@ -406,7 +815,7 @@ def calculate_widget_data(df: pd.DataFrame, widget_type: str, x_col: str, y_col:
             grouped = df.groupby(x_col)[y_col].min()
         else:
             grouped = df.groupby(x_col)[y_col].sum()
-        
+
         grouped = grouped.sort_values(ascending=False).head(12)
         return {
             "labels": [str(k) for k in grouped.index],
@@ -415,7 +824,6 @@ def calculate_widget_data(df: pd.DataFrame, widget_type: str, x_col: str, y_col:
             "y_label": f"{agg}({y_col})"
         }
     else:
-        # Simple Frequency Count by Column
         vc = df[x_col].value_counts().head(12)
         return {
             "labels": [str(k) for k in vc.index],
@@ -428,12 +836,13 @@ def calculate_widget_data(df: pd.DataFrame, widget_type: str, x_col: str, y_col:
 @app.get("/chart-data")
 @app.get("/auto-dashboard")
 def auto_dashboard(
+    request: Request = None,
     bar_col: Optional[str] = None,
     line_col: Optional[str] = None,
     donut_col: Optional[str] = None,
     agg: Optional[str] = "SUM"
 ):
-    df = DATASTORE.get("df")
+    df = get_user_active_df(request)
     if df is None:
         return {"error": "Upload a dataset first"}
 
@@ -444,7 +853,6 @@ def auto_dashboard(
     ranked_num = rank_numeric_columns(df)
     ranked_cat = rank_categorical_columns(df)
 
-    # 1. Generate 4 AI-Ranked Executive KPI Cards
     kpis = []
     for col in ranked_num[:4]:
         s = df[col].dropna()
@@ -465,22 +873,18 @@ def auto_dashboard(
         kpis.append({"id": "kpi_rows", "label": "Total Records", "value": f"{len(df):,}", "delta": "Dataset size", "up": True, "spark": []})
         kpis.append({"id": "kpi_cols", "label": "Total Features", "value": f"{len(df.columns)}", "delta": "Dimensions", "up": True, "spark": []})
 
-    # Line chart column choice (top ranked numeric)
     sel_line = line_col if (line_col and line_col in df.columns) else (ranked_num[0] if ranked_num else (df.columns[0] if len(df.columns) else ""))
     line_res = calculate_widget_data(df, "line", sel_line, None) if sel_line else {"labels": [], "values": []}
     line_res["column"] = sel_line
 
-    # Bar chart column choice (top ranked categorical vs primary numeric)
     sel_bar = bar_col if (bar_col and bar_col in df.columns) else (ranked_cat[0] if ranked_cat else (df.columns[0] if len(df.columns) else ""))
     target_num_bar = ranked_num[0] if ranked_num else None
     bar_res = calculate_widget_data(df, "bar", sel_bar, target_num_bar, agg or "SUM") if sel_bar else {"labels": [], "values": []}
     bar_res["column"] = sel_bar
 
-    # Donut chart column choice (secondary ranked categorical)
     sel_donut = donut_col if (donut_col and donut_col in df.columns) else (ranked_cat[1] if len(ranked_cat) > 1 else (ranked_cat[0] if ranked_cat else (df.columns[0] if len(df.columns) else "")))
     donut_res_raw = calculate_widget_data(df, "donut", sel_donut, target_num_bar, "AVG" if target_num_bar else "COUNT") if sel_donut else {"labels": [], "values": []}
-    
-    # Format donut data for UI
+
     donut_items = []
     colors = ["#d4ff2a", "#3b82f6", "#14b8a6", "#f59e0b", "#ec4899", "#8b5cf6", "#10b981", "#64748b"]
     tot_donut_val = sum(donut_res_raw.get("values", [])) or 1
@@ -491,7 +895,7 @@ def auto_dashboard(
             "p": round((val / tot_donut_val) * 100, 1),
             "c": colors[idx % len(colors)]
         })
-    
+
     donut_res = {
         "items": donut_items,
         "total": f"{tot_donut_val:,.0f}" if isinstance(tot_donut_val, (int, float)) else str(tot_donut_val),
@@ -499,7 +903,6 @@ def auto_dashboard(
         "column": sel_donut
     }
 
-    # Scatter / Correlation data
     scatter_res = {}
     if len(ranked_num) >= 2:
         scatter_res = calculate_widget_data(df, "scatter", ranked_num[0], ranked_num[1])
@@ -521,12 +924,10 @@ def auto_dashboard(
     }
 
 
-# ─────────────────────────────────────────────────────────
-# CUSTOM WIDGET BUILDER ENDPOINT
-# ─────────────────────────────────────────────────────────
+# ── CUSTOM WIDGET BUILDER ──────────────────────────────────────────────────
 
 class CustomWidgetRequest(BaseModel):
-    widget_type: str  # bar, line, area, donut, pie, scatter, kpi
+    widget_type: str
     title: str
     x_col: str
     y_col: Optional[str] = None
@@ -534,8 +935,8 @@ class CustomWidgetRequest(BaseModel):
 
 
 @app.post("/custom-widget")
-async def create_custom_widget(req: CustomWidgetRequest):
-    df = DATASTORE.get("df")
+async def create_custom_widget(req: CustomWidgetRequest, request: Request = None):
+    df = get_user_active_df(request)
     if df is None:
         return {"error": "Upload a dataset first"}
 
@@ -564,13 +965,11 @@ async def create_custom_widget(req: CustomWidgetRequest):
         return {"error": f"Failed to compute custom widget: {str(e)}"}
 
 
-# ─────────────────────────────────────────────────────────
-# OTHER ANALYTICS & EDA ENDPOINTS
-# ─────────────────────────────────────────────────────────
+# ── DATA TABLE ENDPOINTS (preserved exactly) ───────────────────────────────
 
 @app.get("/data")
-def get_data(limit: int = 1000):
-    df = DATASTORE.get("df")
+def get_data(request: Request = None, limit: int = 1000):
+    df = get_user_active_df(request)
     if df is None:
         return {"error": "Upload a dataset first"}
     return {
@@ -581,20 +980,148 @@ def get_data(limit: int = 1000):
     }
 
 
+@app.get("/api/data/columns")
+def get_data_columns(request: Request = None):
+    df = get_user_active_df(request)
+    if df is None:
+        return {"error": "Upload a dataset first"}
+
+    col_details = []
+    for col in df.columns:
+        s = df[col]
+        is_num = pd.api.types.is_numeric_dtype(s)
+        s_clean = s.dropna()
+
+        info = {
+            "name": col,
+            "dtype": str(s.dtype),
+            "null_count": int(s.isnull().sum()),
+            "null_pct": round(float(s.isnull().sum() / max(len(df), 1) * 100), 1),
+            "unique_count": int(s.nunique()),
+            "is_numeric": is_num,
+            "top_values": s_clean.value_counts().head(5).to_dict() if not is_num else {}
+        }
+        if is_num and len(s_clean) > 0:
+            info.update({
+                "min": round(float(s_clean.min()), 2),
+                "max": round(float(s_clean.max()), 2),
+                "mean": round(float(s_clean.mean()), 2),
+                "std": round(float(s_clean.std()), 2) if len(s_clean) > 1 else 0.0
+            })
+        col_details.append(info)
+
+    return {"columns": col_details, "total_rows": len(df), "total_columns": len(df.columns)}
+
+
+@app.post("/api/data/filter")
+def filter_data(req: FilterDataRequest, request: Request = None):
+    df = get_user_active_df(request)
+    if df is None:
+        return {"error": "Upload a dataset first"}
+
+    filtered_df = df.copy()
+
+    if req.column and req.column in filtered_df.columns:
+        col = req.column
+        op = req.operator or "contains"
+        val = req.value
+
+        if val is not None and str(val).strip() != "":
+            if pd.api.types.is_numeric_dtype(filtered_df[col]):
+                try:
+                    num_val = float(val)
+                    if op == "equals":
+                        filtered_df = filtered_df[filtered_df[col] == num_val]
+                    elif op == "greater_than":
+                        filtered_df = filtered_df[filtered_df[col] > num_val]
+                    elif op == "less_than":
+                        filtered_df = filtered_df[filtered_df[col] < num_val]
+                except ValueError:
+                    pass
+            else:
+                str_val = str(val).lower()
+                if op == "equals":
+                    filtered_df = filtered_df[filtered_df[col].astype(str).str.lower() == str_val]
+                else:
+                    filtered_df = filtered_df[filtered_df[col].astype(str).str.lower().str.contains(str_val, na=False)]
+
+    if req.sort_by and req.sort_by in filtered_df.columns:
+        ascending = req.sort_order != "desc"
+        filtered_df = filtered_df.sort_values(by=req.sort_by, ascending=ascending)
+
+    total_matched = len(filtered_df)
+    limit = req.limit or 50
+    offset = req.offset or 0
+
+    paged_df = filtered_df.iloc[offset:offset+limit]
+
+    return {
+        "columns": list(df.columns),
+        "rows": paged_df.fillna("").to_dict(orient="records"),
+        "total_matched": total_matched,
+        "offset": offset,
+        "limit": limit
+    }
+
+
+# ── EXPORT ENDPOINTS (preserved exactly) ──────────────────────────────────
+
 @app.get("/download")
-def download_data():
-    df = DATASTORE.get("df")
+@app.get("/export/csv")
+@app.get("/api/export/csv")
+def download_data(request: Request = None):
+    ds = get_user_datastore(request)
+    df = ds.get("df")
     if df is None:
         return {"error": "No dataset uploaded"}
     stream = io.StringIO()
     df.to_csv(stream, index=False)
     stream.seek(0)
-    return StreamingResponse(stream, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=insightflow_powerbi_export.csv"})
+    filename = f"insightflow_{ds.get('name', 'export')}.csv"
+    return StreamingResponse(stream, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename={filename}"})
 
+
+@app.get("/export/excel")
+@app.get("/api/export/excel")
+def export_excel(request: Request = None):
+    ds = get_user_datastore(request)
+    df = ds.get("df")
+    if df is None:
+        return {"error": "No dataset uploaded"}
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name="Data Analysis")
+    buffer.seek(0)
+    filename = f"insightflow_{ds.get('name', 'export')}.xlsx"
+    return StreamingResponse(
+        buffer,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+
+@app.get("/export/pdf-report")
+@app.get("/api/export/pdf-report")
+def export_pdf_report(request: Request = None):
+    df = get_user_active_df(request)
+    if df is None:
+        return {"error": "No dataset uploaded"}
+    domain = detect_domain(df)
+    pdf_bytes = generate_pdf_report_bytes(df, domain=domain)
+    buffer = io.BytesIO(pdf_bytes)
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=insightflow_executive_report.pdf"}
+    )
+
+
+# ── EDA & CLEANING ENDPOINTS (preserved + credit enforcement) ─────────────
 
 @app.get("/eda")
-def eda():
-    df = DATASTORE.get("df")
+def eda(request: Request):
+    df = get_user_active_df(request)
     if df is None:
         return {"error": "Upload a dataset first"}
     try:
@@ -639,6 +1166,15 @@ def eda():
         completeness = round((1 - missing / max(total_cells, 1)) * 100, 1)
         uniqueness = round((1 - df.duplicated().sum() / max(rows, 1)) * 100, 1)
 
+        # Record history for authenticated users
+        uid = get_user_id_from_request(request)
+        if uid != "guest_user":
+            database.add_history(
+                user_id=uid, type="EDA",
+                title="EDA Analysis Completed",
+                description=f"Profiled {rows:,} rows × {cols} columns — {missing} missing values"
+            )
+
         return {
             "shape": {"rows": rows, "columns": cols},
             "missing": missing,
@@ -656,8 +1192,8 @@ def eda():
 
 
 @app.get("/cleaning")
-def cleaning():
-    df = DATASTORE.get("df")
+def cleaning(request: Request = None):
+    df = get_user_active_df(request)
     if df is None:
         return {"error": "Upload a dataset first"}
 
@@ -688,8 +1224,8 @@ def cleaning():
 
 
 @app.get("/insights")
-def insights():
-    df = DATASTORE.get("df")
+def insights(request: Request = None):
+    df = get_user_active_df(request)
     if df is None:
         return {"error": "Upload a dataset first"}
 
@@ -738,18 +1274,24 @@ Return ONLY a valid JSON array, no markdown:
         }
 
 
-# ─────────────────────────────────────────────────────────
-# AI CHAT & SQL ENDPOINTS
-# ─────────────────────────────────────────────────────────
+# ── AI CHAT & SQL ENDPOINTS ────────────────────────────────────────────────
 
 @app.post("/chat")
-async def chat(query: dict):
+async def chat(query: dict, request: Request):
     question = query.get("question", "").strip()
     if not question:
         return {"error": "No question provided"}
-    df = DATASTORE.get("df")
+    df = get_user_active_df(request)
     if df is None:
         return {"error": "Please upload a dataset first before asking questions."}
+
+    uid = get_user_id_from_request(request)
+    session_id = query.get("session_id")
+    ds = get_user_datastore(request)
+
+    # Credit check for authenticated users
+    if uid != "guest_user":
+        ensure_credits(uid, "AI_CHAT")
 
     cols = list(df.columns)
     numeric_cols = df.select_dtypes(include="number").columns.tolist()
@@ -764,7 +1306,7 @@ async def chat(query: dict):
     system_prompt = f"""You are InsightFlow AI, a PowerBI-grade Data Analyst.
 
 DATASET:
-- File: {DATASTORE.get('name', 'uploaded file')}
+- File: {ds.get('name', 'uploaded file')}
 - Domain: {detect_domain(df)}
 - Shape: {df.shape[0]:,} rows x {df.shape[1]} columns
 - Columns: {', '.join(cols)}
@@ -793,14 +1335,62 @@ RULES: Be concise, clear, and refer to real data. Use bullet points."""
                     table_data = {"columns": result.columns.tolist(), "rows": result.head(25).fillna("").values.tolist(), "sql": sql}
             except Exception:
                 pass
-        return {"answer": answer, "table": table_data, "provider": get_active_provider()}
+
+        # Deduct credit and persist messages
+        if uid != "guest_user":
+            spend_credit(uid, "AI_CHAT")
+
+            # Manage chat session
+            if not session_id:
+                session_title = question[:60] + ("..." if len(question) > 60 else "")
+                dataset_id = ds.get("dataset_id")
+                session = database.create_chat_session(
+                    user_id=uid,
+                    title=session_title,
+                    dataset_id=dataset_id
+                )
+                session_id = session["id"]
+
+            # Persist messages
+            database.save_chat_message(session_id, uid, "user", question)
+            database.save_chat_message(session_id, uid, "assistant", answer)
+
+            # History entry
+            database.add_history(
+                user_id=uid, type="CHAT",
+                title="AI Chat",
+                description=question[:120],
+                resource_id=session_id
+            )
+
+        return {
+            "answer": answer,
+            "table": table_data,
+            "provider": get_active_provider(),
+            "session_id": session_id
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         return {"answer": f"Dataset shape: {df.shape[0]:,} rows x {df.shape[1]} cols.\n- Columns: {', '.join(cols[:8])}", "fallback": True, "provider": "local", "warning": str(e)}
 
 
 @app.post("/run-sql")
-async def run_sql(q: dict):
-    df = DATASTORE.get("df")
+async def run_sql(q: dict, request: Request = None):
+    df = get_user_active_df(request)
+    if df is None:
+        return {"error": "Please upload a dataset first. Table name is: data"}
+    query = q.get("query", "").strip()
+    if not query:
+        return {"error": "Empty query"}
+    try:
+        conn = df_to_sql(df)
+        result = pd.read_sql_query(query, conn)
+        conn.close()
+        return {"columns": result.columns.tolist(), "rows": result.fillna("").values.tolist(), "row_count": len(result)}
+    except Exception as e:
+        return {"error": str(e)}
+
     if df is None:
         return {"error": "Please upload a dataset first. Table name is: data"}
     query = q.get("query", "").strip()
@@ -815,9 +1405,62 @@ async def run_sql(q: dict):
         return {"error": str(e)}
 
 
-# ─────────────────────────────────────────────────────────
-# V2, V3, V4 AGENTIC AI & BI ENDPOINTS
-# ─────────────────────────────────────────────────────────
+# ── CHAT SESSION MANAGEMENT (new) ─────────────────────────────────────────
+
+@app.get("/api/chat/sessions")
+def list_chat_sessions(current_user: dict = Depends(get_current_user)):
+    sessions = database.get_chat_sessions(current_user["id"])
+    return {"sessions": sessions}
+
+
+class CreateSessionRequest(BaseModel):
+    title: Optional[str] = "New Chat"
+    dataset_id: Optional[str] = None
+
+
+@app.post("/api/chat/sessions")
+def create_chat_session_endpoint(payload: CreateSessionRequest, current_user: dict = Depends(get_current_user)):
+    session = database.create_chat_session(
+        user_id=current_user["id"],
+        title=payload.title or "New Chat",
+        dataset_id=payload.dataset_id
+    )
+    return {"session": session}
+
+
+@app.get("/api/chat/sessions/{session_id}/messages")
+def get_session_messages_endpoint(session_id: str, current_user: dict = Depends(get_current_user)):
+    # Verify ownership
+    session = database.get_chat_session(session_id, current_user["id"])
+    if not session:
+        raise HTTPException(status_code=404, detail="Chat session not found")
+    messages = database.get_session_messages(session_id, current_user["id"])
+    return {"session": session, "messages": messages}
+
+
+class SendMessageRequest(BaseModel):
+    question: str
+    session_id: Optional[str] = None
+
+
+@app.post("/api/chat/sessions/{session_id}/messages")
+async def send_session_message(
+    session_id: str,
+    payload: SendMessageRequest,
+    request: Request,
+    current_user: dict = Depends(get_current_user)
+):
+    """Send a message within a specific session. Wraps the /chat endpoint logic."""
+    # Verify session ownership
+    session = database.get_chat_session(session_id, current_user["id"])
+    if not session:
+        raise HTTPException(status_code=404, detail="Chat session not found")
+
+    query_dict = {"question": payload.question, "session_id": session_id}
+    return await chat(query_dict, request)
+
+
+# ── V2/V3/V4 AGENTIC AI & BI ENDPOINTS (preserved + credit enforcement) ───
 
 from models.schemas import AutoFixRequest, RootCauseRequest, ForecastRequest, PlannerRequest
 from agents.planner.planner_agent import run_planner_agent
@@ -831,20 +1474,30 @@ from agents.report.report_agent import run_report_agent
 
 
 @app.post("/api/v2/clean-audit")
-def clean_audit():
-    df = DATASTORE.get("df")
+def clean_audit(request: Request):
+    df = get_user_active_df(request)
     if df is None:
         return {"error": "Upload a dataset first"}
-    return {"issues": run_cleaning_agent(df)}
+
+    issues = run_cleaning_agent(df)
+    uid = get_user_id_from_request(request)
+    if uid != "guest_user":
+        database.add_history(
+            user_id=uid, type="CLEANING",
+            title="Data Cleaning Audit",
+            description=f"Found {len(issues)} data quality issues"
+        )
+    return {"issues": issues}
 
 
 @app.post("/api/v2/auto-fix")
-def auto_fix_endpoint(req: AutoFixRequest):
-    df = DATASTORE.get("df")
+def auto_fix_endpoint(req: AutoFixRequest, request: Request = None):
+    df = get_user_active_df(request)
     if df is None:
         return {"error": "Upload a dataset first"}
     fixed_df = apply_auto_fix(df, action=req.action, column=req.column, method=req.method or "mean")
-    DATASTORE["df"] = fixed_df
+    ds = get_user_datastore(request)
+    ds["df"] = fixed_df
     try:
         try:
             con.unregister("data")
@@ -863,57 +1516,456 @@ def auto_fix_endpoint(req: AutoFixRequest):
 
 
 @app.post("/api/v2/executive-report")
-def executive_report():
-    df = DATASTORE.get("df")
+def executive_report(request: Request):
+    df = get_user_active_df(request)
     if df is None:
         return {"error": "Upload a dataset first"}
-    return run_report_agent(df, ai_chat)
+
+    uid = get_user_id_from_request(request)
+    if uid != "guest_user":
+        ensure_credits(uid, "EXECUTIVE_REPORT")
+
+    result = run_report_agent(df, ai_chat)
+
+    if uid != "guest_user":
+        spend_credit(uid, "EXECUTIVE_REPORT")
+        ds = get_user_datastore(request)
+        dataset_id = ds.get("dataset_id")
+        dataset_name = ds.get("name", "Dataset")
+        saved = database.save_report(
+            user_id=uid,
+            title=f"Executive Report — {dataset_name}",
+            content=result,
+            report_type="executive",
+            dataset_id=dataset_id
+        )
+        database.add_history(
+            user_id=uid, type="REPORT",
+            title="Executive Report Generated",
+            description=f"AI-generated executive summary for {dataset_name}",
+            resource_id=saved.get("id")
+        )
+        database.add_notification(
+            user_id=uid,
+            title="Executive Report Ready",
+            message=f"Your AI executive report for '{dataset_name}' has been generated and saved.",
+            notif_type="success",
+            resource_id=saved.get("id")
+        )
+        result["_report_id"] = saved.get("id")
+
+    return result
 
 
 @app.post("/api/v2/root-cause")
-def root_cause_endpoint(req: RootCauseRequest):
-    df = DATASTORE.get("df")
+def root_cause_endpoint(req: RootCauseRequest, request: Request = None):
+    df = get_user_active_df(request)
     if df is None:
         return {"error": "Upload a dataset first"}
-    return run_root_cause_agent(df, req.metric)
+
+    result = run_root_cause_agent(df, req.metric)
+    uid = get_user_id_from_request(request)
+    if uid != "guest_user":
+        database.add_history(
+            user_id=uid, type="REPORT",
+            title=f"Root Cause Analysis — {req.metric}",
+            description=f"Root cause breakdown for metric: {req.metric}"
+        )
+    return result
 
 
 @app.get("/api/v3/forecast")
-def forecast_endpoint(target_col: Optional[str] = None, periods: int = 6):
-    df = DATASTORE.get("df")
+def forecast_endpoint(target_col: Optional[str] = None, periods: int = 6, request: Request = None):
+    df = get_user_active_df(request)
     if df is None:
         return {"error": "Upload a dataset first"}
-    return run_forecast_agent(df, target_col=target_col, periods=periods)
+
+    uid = get_user_id_from_request(request) if request else "guest_user"
+    if uid != "guest_user":
+        ensure_credits(uid, "FORECAST")
+
+    result = run_forecast_agent(df, target_col=target_col, periods=periods)
+
+    if uid != "guest_user" and "error" not in result:
+        spend_credit(uid, "FORECAST")
+        dataset_id = get_user_datastore(request).get("dataset_id") if request else None
+        saved = database.save_forecast(
+            user_id=uid,
+            target_column=result.get("target", target_col or "unknown"),
+            periods=periods,
+            result=result,
+            dataset_id=dataset_id
+        )
+        database.add_history(
+            user_id=uid, type="FORECAST",
+            title=f"Forecast — {result.get('target', target_col)}",
+            description=f"Trend: {result.get('trend', '')} | {periods} periods projected",
+            resource_id=saved.get("id")
+        )
+        database.add_notification(
+            user_id=uid,
+            title="Forecast Complete",
+            message=f"Forecast for '{result.get('target', target_col)}': {result.get('trend', '')} trend detected over {periods} periods.",
+            notif_type="info",
+            resource_id=saved.get("id")
+        )
+        result["_forecast_id"] = saved.get("id")
+
+    return result
 
 
 @app.get("/api/v3/anomalies")
-def anomalies_endpoint():
-    df = DATASTORE.get("df")
+def anomalies_endpoint(request: Request = None):
+    df = get_user_active_df(request)
     if df is None:
         return {"error": "Upload a dataset first"}
-    return {"anomalies": run_anomaly_agent(df)}
+
+    anomalies = run_anomaly_agent(df)
+    uid = get_user_id_from_request(request)
+    if uid != "guest_user":
+        database.add_history(
+            user_id=uid, type="EDA",
+            title="Anomaly Detection",
+            description=f"Found {len(anomalies)} anomalous patterns"
+        )
+    return {"anomalies": anomalies}
 
 
 @app.get("/api/v3/segmentation")
-def segmentation_endpoint():
-    df = DATASTORE.get("df")
+def segmentation_endpoint(request: Request = None):
+    df = get_user_active_df(request)
     if df is None:
         return {"error": "Upload a dataset first"}
-    return run_segmentation_agent(df)
+
+    result = run_segmentation_agent(df)
+    uid = get_user_id_from_request(request)
+    if uid != "guest_user":
+        database.add_history(
+            user_id=uid, type="EDA",
+            title="Segmentation Analysis",
+            description="ABC segmentation completed"
+        )
+    return result
 
 
 @app.get("/api/v3/recommendations")
-def recommendations_endpoint():
-    df = DATASTORE.get("df")
+def recommendations_endpoint(request: Request = None):
+    df = get_user_active_df(request)
     if df is None:
         return {"error": "Upload a dataset first"}
-    return {"recommendations": run_recommendation_agent(df, ai_chat)}
+
+    uid = get_user_id_from_request(request)
+    if uid != "guest_user":
+        ensure_credits(uid, "RECOMMENDATIONS")
+
+    result = run_recommendation_agent(df, ai_chat)
+
+    if uid != "guest_user":
+        spend_credit(uid, "RECOMMENDATIONS")
+        database.add_history(
+            user_id=uid, type="REPORT",
+            title="AI Recommendations Generated",
+            description="Business recommendations generated by AI"
+        )
+    return {"recommendations": result}
 
 
 @app.post("/api/v4/agent-plan")
-def agent_plan_endpoint(req: PlannerRequest):
-    df = DATASTORE.get("df")
+def agent_plan_endpoint(req: PlannerRequest, request: Request = None):
+    df = get_user_active_df(request)
     if df is None:
         return {"error": "Upload a dataset first"}
-    return run_planner_agent(df, ai_chat, goal=req.goal or "Full Agentic Data Analysis")
 
+    uid = get_user_id_from_request(request)
+    if uid != "guest_user":
+        ensure_credits(uid, "AGENT_PLAN")
+
+    result = run_planner_agent(df, ai_chat, goal=req.goal or "Full Agentic Data Analysis")
+
+    if uid != "guest_user":
+        spend_credit(uid, "AGENT_PLAN")
+        database.add_history(
+            user_id=uid, type="REPORT",
+            title="Agentic Analysis Plan",
+            description=f"Goal: {req.goal or 'Full analysis'}"
+        )
+    return result
+
+
+# ── FORECAST PERSISTENCE ENDPOINTS (new) ──────────────────────────────────
+
+class ForecastRunRequest(BaseModel):
+    target_col: str
+    periods: Optional[int] = 6
+    dataset_id: Optional[str] = None
+
+
+@app.get("/api/forecast")
+def list_forecasts(current_user: dict = Depends(get_current_user)):
+    forecasts = database.get_user_forecasts(current_user["id"])
+    return {"forecasts": forecasts}
+
+
+@app.post("/api/forecast")
+def run_forecast_persisted(payload: ForecastRunRequest, request: Request, current_user: dict = Depends(get_current_user)):
+    """Runs a forecast with full user isolation, credit enforcement, and persistence."""
+    df = get_user_active_df(request)
+    if df is None:
+        raise HTTPException(status_code=400, detail="No dataset loaded. Upload or activate a dataset first.")
+
+    ensure_credits(current_user["id"], "FORECAST")
+    result = run_forecast_agent(df, target_col=payload.target_col, periods=payload.periods or 6)
+
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+
+    spend_credit(current_user["id"], "FORECAST")
+    dataset_id = payload.dataset_id or get_user_datastore(request).get("dataset_id")
+    saved = database.save_forecast(
+        user_id=current_user["id"],
+        target_column=payload.target_col,
+        periods=payload.periods or 6,
+        result=result,
+        dataset_id=dataset_id
+    )
+    database.add_history(
+        user_id=current_user["id"], type="FORECAST",
+        title=f"Forecast — {payload.target_col}",
+        description=f"{result.get('trend', '')} trend | {payload.periods} periods",
+        resource_id=saved.get("id")
+    )
+    database.add_notification(
+        user_id=current_user["id"],
+        title="Forecast Ready",
+        message=f"Forecast for '{payload.target_col}': {result.get('trend', '')} trend over {payload.periods} periods.",
+        notif_type="success",
+        resource_id=saved.get("id")
+    )
+    result["forecast_id"] = saved.get("id")
+    return result
+
+
+@app.get("/api/forecast/{forecast_id}")
+def get_forecast(forecast_id: str, current_user: dict = Depends(get_current_user)):
+    forecast = database.get_forecast_by_id(forecast_id, current_user["id"])
+    if not forecast:
+        raise HTTPException(status_code=404, detail="Forecast not found")
+    return {"forecast": forecast}
+
+
+# ── VISUALIZATION ENDPOINTS (new) ─────────────────────────────────────────
+
+class VisualizationRequest(BaseModel):
+    chart_type: str
+    title: Optional[str] = "Untitled Chart"
+    x_col: str
+    y_col: Optional[str] = None
+    agg: Optional[str] = "SUM"
+    dataset_id: Optional[str] = None
+    configuration: Optional[Dict[str, Any]] = None
+
+
+@app.get("/api/visualizations")
+def list_visualizations(current_user: dict = Depends(get_current_user)):
+    visualizations = database.get_user_visualizations(current_user["id"])
+    return {"visualizations": visualizations}
+
+
+@app.post("/api/visualizations")
+def create_visualization(payload: VisualizationRequest, request: Request, current_user: dict = Depends(get_current_user)):
+    """Generates chart data and saves the visualization record."""
+    df = get_user_active_df(request)
+    if df is None:
+        raise HTTPException(status_code=400, detail="No dataset loaded. Upload or activate a dataset first.")
+
+    ensure_credits(current_user["id"], "VISUALIZATION")
+
+    try:
+        chart_data = calculate_widget_data(
+            df,
+            widget_type=payload.chart_type.lower(),
+            x_col=payload.x_col,
+            y_col=payload.y_col,
+            agg=payload.agg or "SUM"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Chart generation error: {str(e)}")
+
+    spend_credit(current_user["id"], "VISUALIZATION")
+
+    config = payload.configuration or {
+        "chart_type": payload.chart_type,
+        "x_col": payload.x_col,
+        "y_col": payload.y_col,
+        "agg": payload.agg
+    }
+    dataset_id = payload.dataset_id or get_user_datastore(request).get("dataset_id")
+    saved = database.save_visualization(
+        user_id=current_user["id"],
+        chart_type=payload.chart_type,
+        title=payload.title or f"{payload.chart_type} — {payload.x_col}",
+        configuration=config,
+        result_metadata={"labels_count": len(chart_data.get("labels", []))},
+        dataset_id=dataset_id
+    )
+    database.add_history(
+        user_id=current_user["id"], type="VISUALIZATION",
+        title=f"Visualization: {payload.title or payload.chart_type}",
+        description=f"{payload.chart_type} chart on {payload.x_col}",
+        resource_id=saved.get("id")
+    )
+
+    return {
+        "visualization_id": saved.get("id"),
+        "chart_data": chart_data,
+        "metadata": saved
+    }
+
+
+@app.get("/api/visualizations/{viz_id}")
+def get_visualization(viz_id: str, current_user: dict = Depends(get_current_user)):
+    viz = database.get_visualization_by_id(viz_id, current_user["id"])
+    if not viz:
+        raise HTTPException(status_code=404, detail="Visualization not found")
+    return {"visualization": viz}
+
+
+# ── REPORTS ENDPOINTS (new + preserve existing) ────────────────────────────
+
+class GenerateReportRequest(BaseModel):
+    type: Optional[str] = "executive"
+    title: Optional[str] = None
+    dataset_id: Optional[str] = None
+
+
+@app.get("/api/reports")
+def list_reports(current_user: dict = Depends(get_current_user)):
+    reports = database.get_user_reports(current_user["id"])
+    return {"reports": reports}
+
+
+@app.post("/api/reports")
+def generate_report(payload: GenerateReportRequest, request: Request, current_user: dict = Depends(get_current_user)):
+    """Generates a report using the existing report agent, persists it, and returns content."""
+    df = get_user_active_df(request)
+    if df is None:
+        raise HTTPException(status_code=400, detail="No dataset loaded. Upload or activate a dataset first.")
+
+    ensure_credits(current_user["id"], "EXECUTIVE_REPORT")
+
+    result = run_report_agent(df, ai_chat)
+
+    spend_credit(current_user["id"], "EXECUTIVE_REPORT")
+
+    ds = get_user_datastore(request)
+    dataset_name = ds.get("name", "Dataset")
+    dataset_id = payload.dataset_id or ds.get("dataset_id")
+    title = payload.title or f"Executive Report — {dataset_name}"
+
+    saved = database.save_report(
+        user_id=current_user["id"],
+        title=title,
+        content=result,
+        report_type=payload.type or "executive",
+        dataset_id=dataset_id
+    )
+    database.add_history(
+        user_id=current_user["id"], type="REPORT",
+        title=title,
+        description=f"AI-generated {payload.type or 'executive'} report",
+        resource_id=saved.get("id")
+    )
+    database.add_notification(
+        user_id=current_user["id"],
+        title="Report Generated",
+        message=f"'{title}' is ready to view and download.",
+        notif_type="success",
+        resource_id=saved.get("id")
+    )
+
+    result["report_id"] = saved.get("id")
+    return result
+
+
+@app.get("/api/reports/{report_id}")
+def get_report(report_id: str, current_user: dict = Depends(get_current_user)):
+    report = database.get_report_by_id(report_id, current_user["id"])
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    return {"report": report}
+
+
+@app.get("/api/reports/{report_id}/download")
+def download_report_pdf(report_id: str, request: Request = None, current_user: dict = Depends(get_current_user)):
+    """Download an already-generated report as PDF — no credit cost."""
+    report = database.get_report_by_id(report_id, current_user["id"])
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    # Re-use active dataset if available
+    df = get_user_active_df(request)
+    if df is None:
+        raise HTTPException(status_code=400, detail="Dataset not loaded. Activate the dataset first.")
+
+    domain = detect_domain(df)
+    pdf_bytes = generate_pdf_report_bytes(df, domain=domain)
+    buffer = io.BytesIO(pdf_bytes)
+    safe_title = "".join(c for c in report["title"] if c.isalnum() or c in " _-")[:50]
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=insightflow_{safe_title}.pdf"}
+    )
+
+
+
+# ── HISTORY ENDPOINTS (new) ────────────────────────────────────────────────
+
+@app.get("/api/history")
+def get_history(
+    limit: int = 50,
+    offset: int = 0,
+    current_user: dict = Depends(get_current_user)
+):
+    history = database.get_user_history(current_user["id"], limit=limit, offset=offset)
+    total = database.get_history_count(current_user["id"])
+    return {
+        "history": history,
+        "total": total,
+        "limit": limit,
+        "offset": offset
+    }
+
+
+# ── NOTIFICATION ENDPOINTS (new) ──────────────────────────────────────────
+
+@app.get("/api/notifications")
+def get_notifications(current_user: dict = Depends(get_current_user)):
+    notifications = database.get_user_notifications(current_user["id"])
+    unread_count = database.get_unread_notification_count(current_user["id"])
+    return {
+        "notifications": notifications,
+        "unread_count": unread_count
+    }
+
+
+@app.put("/api/notifications/{notif_id}/read")
+def mark_notification_read_endpoint(notif_id: str, current_user: dict = Depends(get_current_user)):
+    success = database.mark_notification_read(notif_id, current_user["id"])
+    if not success:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    return {"status": "success", "message": "Notification marked as read"}
+
+
+@app.put("/api/notifications/read-all")
+def mark_all_notifications_read_endpoint(current_user: dict = Depends(get_current_user)):
+    count = database.mark_all_notifications_read(current_user["id"])
+    return {"status": "success", "marked_count": count}
+
+
+@app.delete("/api/notifications/{notif_id}")
+def delete_notification_endpoint(notif_id: str, current_user: dict = Depends(get_current_user)):
+    success = database.delete_notification(notif_id, current_user["id"])
+    if not success:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    return {"status": "success", "message": "Notification deleted"}

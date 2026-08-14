@@ -2,8 +2,8 @@
  * InsightFlow — Dashboard & Executive Analytics Engine
  */
 
-let cur = null;
-let _availableCols = { numeric: [], categorical: [], all: [] };
+window.cur = window.cur || null;
+window._availableCols = window._availableCols || { numeric: [], categorical: [], all: [] };
 
 async function renderDashboard(s) {
   cur = s;

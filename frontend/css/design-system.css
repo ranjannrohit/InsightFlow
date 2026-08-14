@@ -1,0 +1,301 @@
+/**
+ * InsightFlow — Handcrafted Linear / Notion / Vercel Design System Tokens
+ * design-system.css
+ */
+
+:root {
+  /* Safe Area Insets */
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+
+  /* ── DEFAULT DARK MODE SEMANTIC TOKENS ── */
+  --bg-primary: #0B0B0D;
+  --bg-secondary: #121216;
+  --bg-tertiary: #18181D;
+
+  --surface: #121216;
+  --surface-elevated: #18181D;
+  --surface-hover: #22222A;
+  --surface-active: #2D2D38;
+
+  --text-primary: #F5F5F5;
+  --text-secondary: #B8B8C2;
+  --text-muted: #858591;
+  --text-disabled: #52525E;
+
+  --border: #292930;
+  --border-subtle: #1F1F24;
+  --border-strong: #3D3D48;
+
+  --accent: #d4ff2a;
+  --accent-hover: #bce81a;
+  --accent-active: #a3d400;
+  --accent-text: #040507;
+
+  --button-primary-bg: #d4ff2a;
+  --button-primary-text: #040507;
+  --button-primary-hover: #ffffff;
+  --button-primary-border: #d4ff2a;
+
+  --button-secondary-bg: #18181D;
+  --button-secondary-text: #F5F5F5;
+  --button-secondary-border: #292930;
+  --button-secondary-hover: #22222A;
+
+  --button-outline-bg: transparent;
+  --button-outline-text: #F5F5F5;
+  --button-outline-border: #292930;
+  --button-outline-hover: #18181D;
+
+  --button-ghost-bg: transparent;
+  --button-ghost-text: #F5F5F5;
+  --button-ghost-hover: #18181D;
+
+  --input-bg: #121216;
+  --input-text: #F5F5F5;
+  --input-placeholder: #858591;
+  --input-border: #292930;
+  --input-focus: #d4ff2a;
+
+  --icon-primary: #F5F5F5;
+  --icon-secondary: #B8B8C2;
+  --icon-muted: #858591;
+
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.5);
+
+  --card-bg: #121216;
+  --card-border: #292930;
+  --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+
+  --dropdown-bg: #18181D;
+  --dropdown-border: #292930;
+  --dropdown-item-hover: #22222A;
+  --dropdown-text: #F5F5F5;
+
+  --table-header-bg: #18181D;
+  --table-header-text: #F5F5F5;
+  --table-border: #292930;
+  --table-row-hover: #18181D;
+
+  --badge-bg: #18181D;
+  --badge-text: #F5F5F5;
+  --badge-border: #292930;
+
+  --chat-user-bg: rgba(212, 255, 42, 0.16);
+  --chat-user-text: #F5F5F5;
+  --chat-user-border: rgba(212, 255, 42, 0.3);
+  --chat-ai-bg: #121216;
+  --chat-ai-text: #F5F5F5;
+  --chat-ai-border: #292930;
+
+  --glass-bg: rgba(11, 11, 13, 0.85);
+  --glass-border: #292930;
+
+  /* Legacy variable mappings (Dark Mode) */
+  --black: #0B0B0D;
+  --off: #121216;
+  --bg: #0B0B0D;
+  --s1: #121216;
+  --s2: #18181D;
+  --s3: #22222A;
+
+  --line: #292930;
+  --line2: #3D3D48;
+  --line3: #525260;
+
+  --white: #F5F5F5;
+  --muted: #B8B8C2;
+  --muted2: #858591;
+
+  --lime: #d4ff2a;
+  --lime2: #bce81a;
+  --red: #F87171;
+  --blue: #38BDF8;
+  --amber: #FBBF24;
+  --teal: #2DD4BF;
+  --purple: #C084FC;
+
+  /* Typography System */
+  --ff: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --fb: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --fm: 'JetBrains Mono', 'Fira Code', monospace;
+  --fbebas: 'Bebas Neue', sans-serif;
+
+  /* Font Sizes */
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 15.5px;
+  --text-lg: 18px;
+  --text-xl: 22px;
+  --text-2xl: 28px;
+  --text-3xl: 38px;
+  --text-4xl: 52px;
+  --text-5xl: 72px;
+
+  /* Font Weights */
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+  --font-extrabold: 800;
+
+  /* Line Heights */
+  --leading-tight: 1.12;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.65;
+
+  /* Spacing Scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+
+  /* Corner Radius Scale */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-2xl: 24px;
+  --radius-full: 9999px;
+
+  /* Transitions */
+  --transition-fast: 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-base: 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-slow: 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Z-Index Scale */
+  --z-below: -1;
+  --z-base: 1;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-modal: 1000;
+  --z-toast: 2000;
+
+  /* Maximum Layout Width */
+  --container-max: 1400px;
+}
+
+/* ── LIGHT THEME SEMANTIC VARIABLES OVERRIDE (CLEAN ULTRA-MODERN SLATE) ── */
+html[data-theme="light"] {
+  --bg-primary: #F8FAFC;
+  --bg-secondary: #F1F5F9;
+  --bg-tertiary: #E2E8F0;
+
+  --surface: #FFFFFF;
+  --surface-elevated: #FFFFFF;
+  --surface-hover: #F1F5F9;
+  --surface-active: #E2E8F0;
+
+  --text-primary: #0F172A;
+  --text-secondary: #334155;
+  --text-muted: #64748B;
+  --text-disabled: #94A3B8;
+
+  --border: #E2E8F0;
+  --border-subtle: #F1F5F9;
+  --border-strong: #CBD5E1;
+
+  --accent: #EA580C;
+  --accent-hover: #C2410C;
+  --accent-active: #9A3412;
+  --accent-text: #FFFFFF;
+
+  --button-primary-bg: #EA580C;
+  --button-primary-text: #FFFFFF;
+  --button-primary-hover: #C2410C;
+  --button-primary-border: #EA580C;
+
+  --button-secondary-bg: #FFFFFF;
+  --button-secondary-text: #0F172A;
+  --button-secondary-border: #E2E8F0;
+  --button-secondary-hover: #F1F5F9;
+
+  --button-outline-bg: #FFFFFF;
+  --button-outline-text: #0F172A;
+  --button-outline-border: #E2E8F0;
+  --button-outline-hover: #F1F5F9;
+
+  --button-ghost-bg: transparent;
+  --button-ghost-text: #0F172A;
+  --button-ghost-hover: #F1F5F9;
+
+  --input-bg: #FFFFFF;
+  --input-text: #0F172A;
+  --input-placeholder: #64748B;
+  --input-border: #CBD5E1;
+  --input-focus: #EA580C;
+
+  --icon-primary: #0F172A;
+  --icon-secondary: #334155;
+  --icon-muted: #64748B;
+
+  --shadow-sm: 0 2px 8px rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 4px 16px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 8px 30px rgba(15, 23, 42, 0.12);
+
+  --card-bg: #FFFFFF;
+  --card-border: #E2E8F0;
+  --card-shadow: 0 4px 20px rgba(15, 23, 42, 0.06);
+
+  --dropdown-bg: #FFFFFF;
+  --dropdown-border: #E2E8F0;
+  --dropdown-item-hover: #F1F5F9;
+  --dropdown-text: #0F172A;
+
+  --table-header-bg: #F1F5F9;
+  --table-header-text: #0F172A;
+  --table-border: #E2E8F0;
+  --table-row-hover: #F8FAFC;
+
+  --badge-bg: #FFF7ED;
+  --badge-text: #C2410C;
+  --badge-border: #FFEDD5;
+
+  --chat-user-bg: #FFF7ED;
+  --chat-user-text: #0F172A;
+  --chat-user-border: #FFEDD5;
+  --chat-ai-bg: #FFFFFF;
+  --chat-ai-text: #0F172A;
+  --chat-ai-border: #E2E8F0;
+
+  --glass-bg: rgba(248, 250, 252, 0.95);
+  --glass-border: #E2E8F0;
+
+  /* Legacy variable mappings (Clean Light Mode) */
+  --black: #F8FAFC;
+  --off: #F1F5F9;
+  --bg: #F8FAFC;
+  --s1: #FFFFFF;
+  --s2: #FFFFFF;
+  --s3: #F1F5F9;
+
+  --line: #E2E8F0;
+  --line2: #CBD5E1;
+  --line3: #94A3B8;
+
+  --white: #0F172A;
+  --muted: #475569;
+  --muted2: #64748B;
+
+  --lime: #EA580C;
+  --lime2: #C2410C;
+  --red: #DC2626;
+  --blue: #2563EB;
+  --amber: #D97706;
+  --teal: #0D9488;
+  --purple: #9333EA;
+}
+

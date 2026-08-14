@@ -2,7 +2,7 @@
  * InsightFlow — Main Application Router & Entry Point
  */
 
-const SAMPLES = {
+window.SAMPLES = window.SAMPLES || {
   sales: {
     name: 'SalesQ4_2024.csv',
     cols: ['OrderID', 'Date', 'Product', 'Category', 'Region', 'Units', 'Revenue', 'Profit', 'Type'],
@@ -55,11 +55,13 @@ setInterval(() => {
 }, 1000);
 
 function enterApp() {
-  if (typeof protectRoute === 'function' && !protectRoute('dashboard')) {
-    return;
+  if (typeof protectRoute === 'function') {
+    protectRoute('dashboard');
   }
-  document.getElementById('landing').style.display = 'none';
-  document.getElementById('app').classList.add('on');
+  const landing = document.getElementById('landing');
+  const app = document.getElementById('app');
+  if (landing) landing.style.display = 'none';
+  if (app) app.classList.add('on');
   if (typeof checkAIStatus === 'function') checkAIStatus();
 }
 
@@ -94,6 +96,7 @@ function gv(v) {
   if (v === 'report' && typeof loadReport === 'function') loadReport();
   if (v === 'forecast' && typeof loadForecastView === 'function') loadForecastView();
   if (v === 'notifications' && typeof loadNotifications === 'function') loadNotifications();
+  if (v === 'history' && typeof loadHistory === 'function') loadHistory();
 }
 
 function setSt(s, t) {
@@ -162,6 +165,10 @@ async function handleUpload(input) {
 }
 
 function runPipeline(summary) {
+  if (typeof resetEDA === 'function') resetEDA();
+  if (typeof resetDataTable === 'function') resetDataTable();
+  window._reportLoaded = false;
+
   const steps = [
     'Uploading dataset...',
     'Understanding schema...',
@@ -209,16 +216,13 @@ function runPipeline(summary) {
       setTimeout(advance, STEP_DELAY);
     } else {
       setTimeout(() => {
-        if (overlay) overlay.classList.add('ls-hidden');
-        setTimeout(() => {
-          if (overlay) {
-            overlay.style.display = 'none';
-            overlay.classList.remove('ls-hidden');
-          }
-          if (dcont) dcont.style.display = 'block';
-          if (typeof renderDashboard === 'function') renderDashboard(summary);
-        }, 500);
-      }, HOLD_AFTER);
+        if (overlay) {
+          overlay.classList.add('ls-hidden');
+          overlay.style.display = 'none';
+        }
+        if (dcont) dcont.style.display = 'block';
+        if (typeof renderDashboard === 'function') renderDashboard(summary);
+      }, 200);
     }
   }
   setTimeout(advance, 200);

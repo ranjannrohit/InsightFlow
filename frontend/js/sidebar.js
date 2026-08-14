@@ -8,7 +8,7 @@ const PAGE_TITLES = {
   data: 'Data Table',
   cleaning: 'Data Cleaning Log',
   report: 'Executive Reports',
-  chat: 'AI Analyst Chat',
+  chat: 'Ask AI',
   sql: 'SQL Playground',
   agentic: 'Agent Execution Timeline',
   forecast: 'Forecasting & Anomalies',
@@ -52,13 +52,33 @@ function toggleSidebarCollapse() {
   app.classList.toggle('sidebar-collapsed');
   const isCollapsed = app.classList.contains('sidebar-collapsed');
   localStorage.setItem('sidebar_collapsed', isCollapsed ? 'true' : 'false');
+
+  const chk = document.getElementById('stCompactNav');
+  if (chk) chk.checked = isCollapsed;
+
+  // Trigger window resize so canvas / SVG charts adapt seamlessly
+  setTimeout(() => {
+    window.dispatchEvent(new Event('resize'));
+  }, 260);
 }
 
-(function initSidebarState() {
+function initSidebarState() {
   if (localStorage.getItem('sidebar_collapsed') === 'true') {
-    window.addEventListener('DOMContentLoaded', () => {
+    const applyCollapse = () => {
       const app = document.getElementById('app');
-      if (app) app.classList.add('sidebar-collapsed');
-    });
+      if (app) {
+        app.classList.add('sidebar-collapsed');
+        const chk = document.getElementById('stCompactNav');
+        if (chk) chk.checked = true;
+      }
+    };
+    if (document.readyState === 'loading') {
+      window.addEventListener('DOMContentLoaded', applyCollapse);
+    } else {
+      applyCollapse();
+    }
   }
-})();
+}
+
+initSidebarState();
+

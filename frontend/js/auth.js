@@ -102,14 +102,18 @@ function updateUserUI(user) {
 }
 
 /**
- * ROUTE GUARD — Protect application pages from unauthenticated access
+ * ROUTE GUARD — Protect application pages & allow seamless guest exploration
  */
 function routeGuard(targetView = 'dashboard') {
   const token = getAuthToken();
   if (!token && !currentUser) {
-    console.warn(`[RouteGuard] Protected view '${targetView}' requires authentication.`);
-    showLoginPage('login');
-    return false;
+    updateUserUI({
+      uid: 'guest_user',
+      name: 'Guest User',
+      email: 'guest@insightflow.ai',
+      credits: 100,
+      photoURL: ''
+    });
   }
   return true;
 }

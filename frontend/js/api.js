@@ -3,18 +3,19 @@
  * Centralized API endpoints & fetch utilities
  */
 
-const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+window.API_BASE = window.API_BASE || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
   ? "http://127.0.0.1:8000"
-  : "https://insightflow-backend-dedb.onrender.com";
+  : "https://insightflow-backend-dedb.onrender.com");
 
-async function authFetch(url, options = {}) {
+window.authFetch = async function authFetch(url, options = {}) {
+  options = options || {};
   options.headers = options.headers || {};
-  const token = typeof getAuthToken === 'function' ? getAuthToken() : '';
+  const token = typeof getAuthToken === 'function' ? getAuthToken() : (localStorage.getItem('auth_token') || '');
   if (token) {
     options.headers['Authorization'] = `Bearer ${token}`;
   }
   return fetch(url, options);
-}
+};
 
 async function uploadToBackend(csvContent, filename) {
   const blob = new Blob([csvContent], { type: 'text/csv' });

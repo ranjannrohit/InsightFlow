@@ -3,10 +3,10 @@
   background: var(--lime);
   color: #040507;
   font-family: var(--fb);
-  font-size: 16px;
-  font-weight: 600;
-  height: 56px;
-  padding: 0 40px;
+  font-size: 15px;
+  font-weight: 700;
+  height: 52px;
+  padding: 0 36px;
   border-radius: var(--radius-md);
   border: none;
   cursor: pointer;
@@ -14,7 +14,7 @@
   align-items: center;
   justify-content: center;
   gap: 12px;
-  transition: background 0.22s ease, box-shadow 0.22s ease;
+  transition: background 0.22s ease, box-shadow 0.22s ease, transform 0.22s ease;
   box-shadow: 0 6px 28px rgba(212, 255, 42, 0.25);
   position: relative;
   z-index: 10;
@@ -37,19 +37,19 @@
 .btn-primary-v3:hover {
   background: #ffffff;
   box-shadow: 0 8px 36px rgba(255, 255, 255, 0.35);
-  transform: none !important;
+  transform: translateY(-1px) !important;
 }
 
 .schip {
   background: var(--s2);
   border: 1px solid var(--line2);
-  border-radius: var(--radius-sm);
-  padding: 8px 16px;
-  font-family: var(--fm);
-  font-size: 12px;
+  border-radius: 20px;
+  padding: 8px 18px;
+  font-family: var(--fb);
+  font-size: 12.5px;
   color: var(--muted);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.18s ease;
   outline: none;
 }
 
@@ -60,67 +60,75 @@
 }
 
 .schip.active {
-  border-color: var(--lime);
-  color: var(--black);
-  background: var(--lime);
+  border-color: rgba(212, 255, 42, 0.4);
+  color: var(--lime);
+  background: rgba(212, 255, 42, 0.1);
   font-weight: 600;
 }
 
 .ebtn {
   border: 1px solid var(--line2);
-  border-radius: var(--radius-sm);
-  padding: 9px 18px;
-  font-size: 13px;
+  border-radius: var(--radius-md, 10px);
+  padding: 0 20px;
+  height: 44px;
+  font-size: 14.5px;
   color: var(--muted);
   cursor: pointer;
-  background: transparent;
+  background: rgba(255, 255, 255, 0.04);
   font-family: var(--fb);
-  transition: all .12s;
-  display: flex;
+  transition: all .2s ease;
+  display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 10px;
 }
 
 .ebtn:hover {
   border-color: var(--lime);
   color: var(--lime);
+  background: rgba(212, 255, 42, 0.1);
+  transform: translateY(-1px);
 }
 
 .back {
   font-family: var(--fm);
-  font-size: 12px;
+  font-size: 13px;
   color: var(--muted);
   border: 1px solid var(--line2);
-  padding: 6px 14px;
+  padding: 0 18px;
+  height: 40px;
   cursor: pointer;
-  background: transparent;
+  background: rgba(255, 255, 255, 0.04);
   letter-spacing: .5px;
-  transition: all .12s;
-  display: flex;
+  transition: all .18s ease;
+  display: inline-flex;
   align-items: center;
-  gap: 5px;
-  border-radius: var(--radius-sm);
+  gap: 8px;
+  border-radius: var(--radius-md, 10px);
 }
 
 .back:hover {
   color: var(--white);
   border-color: var(--line3);
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
 }
 
 .tsrch {
   background: var(--s2);
   border: 1px solid var(--line2);
-  border-radius: var(--radius-sm);
-  padding: 9px 14px;
+  border-radius: var(--radius-md);
+  padding: 10px 16px;
   color: var(--white);
-  font-family: var(--fm);
-  font-size: 13px;
+  font-family: var(--fb);
+  font-size: 13.5px;
   outline: none;
-  width: 220px;
+  width: 240px;
+  transition: all 0.2s ease;
 }
 
 .tsrch:focus {
   border-color: var(--lime);
+  box-shadow: 0 0 0 3px rgba(212, 255, 42, 0.12);
 }
 
 .tsrch::placeholder {
@@ -136,23 +144,25 @@
   letter-spacing: .5px;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   border-radius: var(--radius-sm);
 }
 
 .ttag.g {
-  border-color: rgba(212, 255, 42, .25);
-  color: var(--lime2);
+  border-color: rgba(212, 255, 42, .3);
+  color: var(--lime);
+  background: rgba(212, 255, 42, 0.08);
 }
 
 .twrap {
   border: 1px solid var(--line2);
   border-radius: var(--radius-lg);
   overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
 .thead-row {
-  padding: 14px 22px;
+  padding: 16px 24px;
   border-bottom: 1px solid var(--line2);
   display: flex;
   justify-content: space-between;
@@ -168,16 +178,17 @@
 
 .dtbl th {
   background: var(--s2);
-  padding: 11px 16px;
+  padding: 12px 18px;
   text-align: left;
   font-family: var(--fm);
   font-size: 11px;
-  letter-spacing: .8px;
-  color: var(--muted);
+  letter-spacing: 1px;
+  color: var(--muted2);
   border-bottom: 1px solid var(--line2);
   white-space: nowrap;
   text-transform: uppercase;
   cursor: pointer;
+  transition: color 0.15s ease;
 }
 
 .dtbl th:hover {
@@ -185,11 +196,12 @@
 }
 
 .dtbl td {
-  padding: 12px 16px;
+  padding: 14px 18px;
   border-bottom: 1px solid var(--line);
-  font-family: var(--fm);
+  font-family: var(--fb);
   font-size: 13.5px;
   white-space: nowrap;
+  color: var(--white);
 }
 
 .dtbl tr:last-child td {
@@ -197,5 +209,6 @@
 }
 
 .dtbl tbody tr:hover td {
-  background: var(--s1);
+  background: rgba(255, 255, 255, 0.03);
 }
+

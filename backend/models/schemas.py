@@ -43,3 +43,32 @@ class GoogleAuthRequest(BaseModel):
     profile_photo: Optional[str] = None
     remember_me: Optional[bool] = True
 
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+    confirm_password: str
+
+class UpdateProfileRequest(BaseModel):
+    name: Optional[str] = None
+    profile_photo: Optional[str] = None
+    theme: Optional[str] = None
+    history_enabled: Optional[int] = None
+
+class ChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str
+    confirm_password: str
+
+class FilterDataRequest(BaseModel):
+    column: Optional[str] = None
+    operator: Optional[str] = "contains"  # "contains", "equals", "greater_than", "less_than"
+    value: Optional[Any] = None
+    sort_by: Optional[str] = None
+    sort_order: Optional[str] = "asc"  # "asc", "desc"
+    limit: Optional[int] = 50
+    offset: Optional[int] = 0
+
+

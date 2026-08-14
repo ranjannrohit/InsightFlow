@@ -2,8 +2,12 @@
  * InsightFlow — Interactive Data Table Renderer
  */
 
-let _tableLoaded = false;
-let _sortDir = {};
+window._tableLoaded = window._tableLoaded || false;
+window._sortDir = window._sortDir || {};
+
+function resetDataTable() {
+  window._tableLoaded = false;
+}
 
 async function loadDataTable() {
   if (_tableLoaded) return;
