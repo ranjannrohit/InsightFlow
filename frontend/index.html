@@ -2516,7 +2516,7 @@
           </div>
           <div class="l-nav-actions">
             <button class="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle Theme">🌙 DARK</button>
-            <button class="btn-nav-sec" onclick="window.location.href='/login'">Sign In</button>
+            <button class="btn-nav-sec" id="landingAuthBtn" onclick="showLoginPage('login')">Sign In</button>
             <button class="btn-nav-pri" onclick="triggerFileUpload()">Upload Dataset →</button>
           </div>
         </div>
@@ -3271,11 +3271,14 @@
         <!-- Sidebar Footer -->
         <div class="sb-footer">
           <div class="sb-user">
-            <div class="sb-avatar">RR</div>
+            <div class="sb-avatar" id="sbAvatar">IF</div>
             <div class="sb-user-info">
-              <div class="sb-user-name" id="sbUserName">Rohit Ranjan</div>
-              <div class="sb-user-email" id="sbUserEmail">rohit@insightflow.ai</div>
+              <div class="sb-user-name" id="sbUserName">Guest User</div>
+              <div class="sb-user-email" id="sbUserEmail">guest@insightflow.ai</div>
             </div>
+            <button class="sb-logout-btn" onclick="handleLogout(event)" title="Log Out / Sign Out" aria-label="Log Out">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            </button>
           </div>
           <div class="sb-credits">
             <div class="sb-credits-label">

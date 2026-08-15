@@ -104,22 +104,27 @@ function updateUserUI(user) {
 /**
  * ROUTE GUARD — Protect application pages & allow seamless guest exploration
  */
-function routeGuard(targetView = 'dashboard') {
+function routeGuard(targetView = 'dashboard', allowGuest = false) {
   const token = getAuthToken();
   if (!token && !currentUser) {
-    updateUserUI({
-      uid: 'guest_user',
-      name: 'Guest User',
-      email: 'guest@insightflow.ai',
-      credits: 100,
-      photoURL: ''
-    });
+    if (allowGuest) {
+      updateUserUI({
+        uid: 'guest_user',
+        name: 'Guest User',
+        email: 'guest@insightflow.ai',
+        credits: 100,
+        photoURL: ''
+      });
+      return true;
+    }
+    showLoginPage('login');
+    return false;
   }
   return true;
 }
 
 function protectRoute(targetView) {
-  return routeGuard(targetView);
+  return routeGuard(targetView, false);
 }
 
 /**
@@ -170,9 +175,19 @@ function switchAuthView(mode) {
 }
 
 function showLoginPage(mode = 'login') {
-  switchAuthView(mode);
   const lp = document.getElementById('login-page');
-  if (lp) lp.classList.add('on');
+  if (lp) {
+    switchAuthView(mode);
+    lp.classList.add('on');
+  } else {
+    if (mode === 'signup') {
+      window.location.href = 'signup.html';
+    } else if (mode === 'forgot') {
+      window.location.href = 'forgot-password.html';
+    } else {
+      window.location.href = 'login.html';
+    }
+  }
 }
 
 function hideLoginPage() {

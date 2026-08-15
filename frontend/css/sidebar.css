@@ -266,6 +266,26 @@
   text-overflow: ellipsis;
 }
 
+.sb-logout-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted2, #64748b);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  margin-left: auto;
+}
+
+.sb-logout-btn:hover {
+  color: #ef4444 !important;
+  background: rgba(239, 68, 68, 0.12) !important;
+  transform: scale(1.1);
+}
+
 .sb-credits {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--line2, rgba(255, 255, 255, 0.08));
