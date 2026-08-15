@@ -131,7 +131,10 @@ async function loginWithGoogle() {
   localStorage.setItem('insightflow_user', JSON.stringify(googleUser));
   if (typeof updateUserUI === 'function') updateUserUI(googleUser);
 
-  if (window.location.pathname.includes('login.html') || window.location.pathname.includes('signup.html') || window.location.pathname.includes('forgot-password.html')) {
+  const isAuthPath = window.location.pathname.includes('login') ||
+                     window.location.pathname.includes('signup') ||
+                     window.location.pathname.includes('forgot-password');
+  if (isAuthPath) {
     window.location.href = 'index.html';
   } else {
     if (typeof hideLoginPage === 'function') hideLoginPage();
@@ -166,7 +169,10 @@ async function loginWithEmail(email, password, remember = true) {
   localStorage.setItem('insightflow_user', JSON.stringify(userSession));
   if (typeof updateUserUI === 'function') updateUserUI(userSession);
 
-  if (window.location.pathname.includes('login.html') || window.location.pathname.includes('signup.html') || window.location.pathname.includes('forgot-password.html')) {
+  const isAuthPath = window.location.pathname.includes('login') ||
+                     window.location.pathname.includes('signup') ||
+                     window.location.pathname.includes('forgot-password');
+  if (isAuthPath) {
     window.location.href = 'index.html';
   } else {
     if (typeof hideLoginPage === 'function') hideLoginPage();
@@ -201,7 +207,10 @@ async function signup(name, email, password) {
   localStorage.setItem('insightflow_user', JSON.stringify(userSession));
   if (typeof updateUserUI === 'function') updateUserUI(userSession);
 
-  if (window.location.pathname.includes('login.html') || window.location.pathname.includes('signup.html') || window.location.pathname.includes('forgot-password.html')) {
+  const isAuthPath = window.location.pathname.includes('login') ||
+                     window.location.pathname.includes('signup') ||
+                     window.location.pathname.includes('forgot-password');
+  if (isAuthPath) {
     window.location.href = 'index.html';
   } else {
     if (typeof hideLoginPage === 'function') hideLoginPage();

@@ -301,14 +301,53 @@ def rank_categorical_columns(df: pd.DataFrame) -> List[str]:
     return ranked
 
 
-# ── ROOT ENDPOINT ──────────────────────────────────────────────────────────
+# ── FRONTEND STATIC MOUNT & PAGE ROUTES ──────────────────────────────────
+frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
+if os.path.exists(frontend_dir):
+    css_dir = os.path.join(frontend_dir, "css")
+    js_dir = os.path.join(frontend_dir, "js")
+    if os.path.exists(css_dir):
+        app.mount("/css", StaticFiles(directory=css_dir), name="css")
+    if os.path.exists(js_dir):
+        app.mount("/js", StaticFiles(directory=js_dir), name="js")
+
 
 @app.get("/", response_class=FileResponse, include_in_schema=False)
 def read_root():
-    frontend_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "index.html")
+    frontend_path = os.path.join(frontend_dir, "index.html")
     if os.path.exists(frontend_path):
         return FileResponse(frontend_path)
     return {"status": "InsightFlow Analytics Engine Running", "version": "5.0-saas"}
+
+
+@app.get("/login", response_class=FileResponse, include_in_schema=False)
+def serve_login_clean():
+    return FileResponse(os.path.join(frontend_dir, "login.html"))
+
+
+@app.get("/login.html", response_class=FileResponse, include_in_schema=False)
+def serve_login_html():
+    return FileResponse(os.path.join(frontend_dir, "login.html"))
+
+
+@app.get("/signup", response_class=FileResponse, include_in_schema=False)
+def serve_signup_clean():
+    return FileResponse(os.path.join(frontend_dir, "signup.html"))
+
+
+@app.get("/signup.html", response_class=FileResponse, include_in_schema=False)
+def serve_signup_html():
+    return FileResponse(os.path.join(frontend_dir, "signup.html"))
+
+
+@app.get("/forgot-password", response_class=FileResponse, include_in_schema=False)
+def serve_forgot_clean():
+    return FileResponse(os.path.join(frontend_dir, "forgot-password.html"))
+
+
+@app.get("/forgot-password.html", response_class=FileResponse, include_in_schema=False)
+def serve_forgot_html():
+    return FileResponse(os.path.join(frontend_dir, "forgot-password.html"))
 
 
 @app.get("/status")

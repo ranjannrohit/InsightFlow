@@ -348,9 +348,17 @@ async function handleGoogleSignIn() {
     setAuthToken(data.token, true);
     updateUserUI(data.user);
     if (loadingCard) loadingCard.classList.remove('on');
-    hideLoginPage();
-    enterApp();
-    checkOnboardingWelcome();
+
+    const isAuthPath = window.location.pathname.includes('login') ||
+                       window.location.pathname.includes('signup') ||
+                       window.location.pathname.includes('forgot-password');
+    if (isAuthPath) {
+      window.location.href = 'index.html';
+    } else {
+      hideLoginPage();
+      enterApp();
+      checkOnboardingWelcome();
+    }
   } catch (err) {
     const loadingCard = document.getElementById('auth-google-loading');
     const loginView = document.getElementById('auth-login-view');
